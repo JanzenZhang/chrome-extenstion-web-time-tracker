@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Settings, Download } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#8dd1e1', '#a4de6c', '#d0ed57'];
 
@@ -77,66 +78,100 @@ const Popup = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="today" onValueChange={setCurrentView}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="today">今日统计</TabsTrigger>
-          <TabsTrigger value="week">本周趋势</TabsTrigger>
+      <Tabs defaultValue="today" onValueChange={setCurrentView} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 relative bg-muted p-1">
+          <TabsTrigger value="today" className="z-10 h-8">
+            <span className="relative z-20">今日统计</span>
+            {currentView === 'today' && (
+              <motion.div
+                layoutId="active-pill"
+                className="absolute inset-0 bg-background rounded-md shadow-sm z-10"
+                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+              />
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="week" className="z-10 h-8">
+            <span className="relative z-20">本周趋势</span>
+            {currentView === 'week' && (
+              <motion.div
+                layoutId="active-pill"
+                className="absolute inset-0 bg-background rounded-md shadow-sm z-10"
+                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+              />
+            )}
+          </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="today" className="space-y-4 outline-none">
-          <Card>
-            <CardHeader className="p-4">
-              <CardTitle className="text-sm font-medium">网站使用时长分布</CardTitle>
-            </CardHeader>
-            <CardContent className="h-[200px] w-full p-0 flex items-center justify-center">
-              <PieChart width={350} height={200}>
-                <Pie
-                  data={todayData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                  isAnimationActive={false}
-                >
-                  {todayData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: number) => formatTime(value)} />
-              </PieChart>
-            </CardContent>
-          </Card>
+        <AnimatePresence mode="wait">
+          <TabsContent value="today" key="today" className="space-y-4 outline-none">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Card>
+                <CardHeader className="p-4">
+                  <CardTitle className="text-sm font-medium">网站使用时长分布</CardTitle>
+                </CardHeader>
+                <CardContent className="h-[200px] w-full p-0 flex items-center justify-center">
+                  <PieChart width={350} height={200}>
+                    <Pie
+                      data={todayData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                      isAnimationActive={false}
+                    >
+                      {todayData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => formatTime(value)} />
+                  </PieChart>
+                </CardContent>
+              </Card>
 
-          <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2">
-            {todayData.map((item, index) => (
-              <div key={item.name} className="flex items-center justify-between text-sm py-1 border-b border-muted last:border-0">
-                <div className="flex items-center gap-2 truncate">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                  <span className="truncate max-w-[200px]" title={item.name}>{item.name}</span>
-                </div>
-                <span className="text-muted-foreground font-medium">{formatTime(item.value)}</span>
+              <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2 mt-4">
+                {todayData.map((item, index) => (
+                  <div key={item.name} className="flex items-center justify-between text-sm py-1 border-b border-muted last:border-0">
+                    <div className="flex items-center gap-2 truncate">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                      <span className="truncate max-w-[200px]" title={item.name}>{item.name}</span>
+                    </div>
+                    <span className="text-muted-foreground font-medium">{formatTime(item.value)}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </TabsContent>
+            </motion.div>
+          </TabsContent>
 
-        <TabsContent value="week" className="outline-none">
-          <Card>
-            <CardHeader className="p-4">
-              <CardTitle className="text-sm font-medium">最近 7 天使用时长 (小时)</CardTitle>
-            </CardHeader>
-            <CardContent className="h-[250px] w-full p-0 flex items-center justify-center">
-              <BarChart width={350} height={250} data={weeklyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}h`} />
-                <Tooltip cursor={{fill: 'rgba(0,0,0,0.05)'}} contentStyle={{ borderRadius: '8px' }} />
-                <Bar dataKey="hours" name="使用时长 (小时)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-              </BarChart>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <TabsContent value="week" key="week" className="outline-none">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Card>
+                <CardHeader className="p-4">
+                  <CardTitle className="text-sm font-medium">最近 7 天使用时长 (小时)</CardTitle>
+                </CardHeader>
+                <CardContent className="h-[250px] w-full p-0 flex items-center justify-center">
+                  <BarChart width={350} height={250} data={weeklyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}h`} />
+                    <Tooltip cursor={{fill: 'rgba(0,0,0,0.05)'}} contentStyle={{ borderRadius: '8px' }} />
+                    <Bar dataKey="hours" name="使用时长 (小时)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                  </BarChart>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+        </AnimatePresence>
       </Tabs>
     </div>
   );
