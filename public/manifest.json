@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "WebTime 时间追踪助手",
+  "version": "2.0",
+  "description": "基于 React 和 shadcn/ui 的现代化网页使用时长追踪插件。",
+  "permissions": [
+    "storage",
+    "tabs",
+    "idle",
+    "notifications",
+    "alarms"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "options_page": "options.html"
+}
