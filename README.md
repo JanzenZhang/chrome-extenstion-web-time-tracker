@@ -2,6 +2,14 @@
 
 A modern Chrome extension to track your website usage, set daily limits, and visualize your data using a professional React-based UI.
 
+## Features
+- **Website Usage Tracking:** Monitor time spent on different websites.
+- **Daily Limits:** Set daily usage limits for specific sites.
+- **Hourly Chime:** Receive a notification every hour on the hour.
+- **Sleep Reminder:** Receive a gentle reminder to rest during late-night hours (23:00 - 05:00).
+- **Data Visualization:** View usage statistics with interactive charts.
+- **Data Export:** Download your usage data as JSON.
+
 ## Tech Stack
 - **Framework:** React 18
 - **Build Tool:** Vite

@@ -77,8 +77,48 @@ chrome.alarms.create('updateStats', { periodInMinutes: 0.1 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'updateStats') {
     updateTime();
+  } else if (alarm.name === 'hourlyChime') {
+    handleHourlyChime();
   }
 });
+
+function handleHourlyChime() {
+  const now = new Date();
+  const hour = now.getHours();
+  
+  let title = '整点报时';
+  let message = `现在是 ${hour} 点整。`;
+  
+  // Late night check: 23:00 - 05:00
+  if (hour >= 23 || hour <= 5) {
+    title = '深夜提醒';
+    message = `现在是 ${hour} 点了。夜深了，请注意休息，早点睡觉，保持健康作息！`;
+  }
+
+  chrome.notifications.create(`chime-${Date.now()}`, {
+    type: 'basic',
+    title: title,
+    message: message,
+    iconUrl: 'icon128.png',
+    priority: 2
+  });
+}
+
+function setupHourlyAlarm() {
+  chrome.alarms.get('hourlyChime', (alarm) => {
+    if (!alarm) {
+      const nextHour = new Date();
+      nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
+      chrome.alarms.create('hourlyChime', {
+        when: nextHour.getTime(),
+        periodInMinutes: 60
+      });
+    }
+  });
+}
+
+// Ensure alarm is set up on load
+setupHourlyAlarm();
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get(['stats', 'limits', 'notifications'], (result) => {
@@ -86,7 +126,18 @@ chrome.runtime.onInstalled.addListener(() => {
     if (!result.limits) chrome.storage.local.set({ limits: {} });
     if (!result.notifications) chrome.storage.local.set({ notifications: {} });
   });
+  
+  // Force reset alarm on install/update to ensure correct timing
+  const nextHour = new Date();
+  nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
+  chrome.alarms.create('hourlyChime', {
+    when: nextHour.getTime(),
+    periodInMinutes: 60
+  });
 });
+
+// Expose for debugging
+(self as any).handleHourlyChime = handleHourlyChime;
 
 async function init() {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
