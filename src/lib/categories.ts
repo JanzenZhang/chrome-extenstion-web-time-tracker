@@ -74,16 +74,15 @@ export function getCategoryForDomain(
     domain: string,
     userCategories: Record<string, string>
 ): string {
-    // 1. Check user overrides
-    if (userCategories[domain]) {
-        return userCategories[domain];
+    if (userCategories[domain]) return userCategories[domain];
+    for (const key of Object.keys(userCategories)) {
+        if (domain.endsWith('.' + key)) return userCategories[key];
     }
 
-    // 2. Check default dictionary (exact match)
-    if (defaultCategories[domain]) {
-        return defaultCategories[domain];
+    if (defaultCategories[domain]) return defaultCategories[domain];
+    for (const key of Object.keys(defaultCategories)) {
+        if (domain.endsWith('.' + key)) return defaultCategories[key];
     }
 
-    // 3. Fallback to Neutral
     return "Neutral";
 }

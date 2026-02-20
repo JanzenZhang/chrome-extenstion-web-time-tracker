@@ -95,6 +95,21 @@ function getDomain(url: string | undefined): string | null {
   }
 }
 
+function findMatchingRuleKey<T>(domain: string | null, rules: Record<string, T>): string | null {
+  if (!domain) return null;
+  if (rules[domain] !== undefined) return domain;
+
+  let bestMatch: string | null = null;
+  for (const key of Object.keys(rules)) {
+    if (domain.endsWith('.' + key)) {
+      if (!bestMatch || key.length > bestMatch.length) {
+        bestMatch = key;
+      }
+    }
+  }
+  return bestMatch;
+}
+
 async function updateTime() {
   if (!currentDomain) {
     console.log('[WebTime] updateTime skipped: no currentDomain');
@@ -118,19 +133,30 @@ async function updateTime() {
 
   console.log(`[WebTime] Updated stats for ${currentDomain}: ${stats[today][currentDomain]}s`);
 
-  // Check limits
-  if (limits[currentDomain] && stats[today][currentDomain] >= limits[currentDomain]) {
-    const lastNotif = notifications[currentDomain];
-    if (lastNotif !== today) {
-      const notificationId = `limit-${currentDomain}-${today}`;
-      chrome.notifications.create(notificationId, {
-        type: 'basic',
-        title: '上网时长达到限制',
-        iconUrl: 'icon128.png',
-        message: `您在 ${currentDomain} 的今日使用时长已达到设定限制。`,
-        priority: 2
-      });
-      notifications[currentDomain] = today;
+  // Check limits by summing up matching subdomains
+  const matchedLimitKey = findMatchingRuleKey(currentDomain, limits);
+  if (matchedLimitKey) {
+    const limitSeconds = limits[matchedLimitKey];
+    let usedSeconds = 0;
+    for (const [statDomain, time] of Object.entries(stats[today])) {
+      if (statDomain === matchedLimitKey || statDomain.endsWith('.' + matchedLimitKey)) {
+        usedSeconds += time;
+      }
+    }
+
+    if (usedSeconds >= limitSeconds) {
+      const lastNotif = notifications[matchedLimitKey];
+      if (lastNotif !== today) {
+        const notificationId = `limit-${matchedLimitKey}-${today}`;
+        chrome.notifications.create(notificationId, {
+          type: 'basic',
+          title: '上网时长达到限制',
+          iconUrl: 'icon128.png',
+          message: `您在 ${matchedLimitKey} 相关网站的今日使用时长已达到设定限制。`,
+          priority: 2
+        });
+        notifications[matchedLimitKey] = today;
+      }
     }
   }
 
@@ -286,9 +312,17 @@ async function handleGetStatus(sender: chrome.runtime.MessageSender, sendRespons
   }
 
   // 2. Check Daily Limit
-  const limitSeconds = limits[domain];
-  if (limitSeconds) {
-    const usedSeconds = stats[today]?.[domain] || 0;
+  const matchedLimitKey = findMatchingRuleKey(domain, limits);
+  if (matchedLimitKey) {
+    const limitSeconds = limits[matchedLimitKey];
+    let usedSeconds = 0;
+    const todayStats = stats[today] || {};
+    for (const [statDomain, time] of Object.entries(todayStats)) {
+      if (statDomain === matchedLimitKey || statDomain.endsWith('.' + matchedLimitKey)) {
+        usedSeconds += time;
+      }
+    }
+
     const remainingSeconds = limitSeconds - usedSeconds;
 
     if (remainingSeconds <= 0) {

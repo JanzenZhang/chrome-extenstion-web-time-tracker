@@ -7,6 +7,23 @@ import { Trash2, Plus } from 'lucide-react';
 
 import { ThemeToggle } from './components/ThemeToggle';
 
+const cleanDomainInput = (input: string) => {
+  let clean = input.trim();
+  try {
+    if (clean.includes('http://') || clean.includes('https://')) {
+      clean = new URL(clean).hostname;
+    } else if (clean.includes('/')) {
+      clean = clean.split('/')[0];
+    }
+  } catch (e) {
+    // ignore
+  }
+  if (clean.startsWith('www.')) {
+    clean = clean.substring(4);
+  }
+  return clean;
+};
+
 const Options = () => {
   const [limits, setLimits] = useState<Record<string, number>>({});
   const [newDomain, setNewDomain] = useState('');
@@ -32,8 +49,8 @@ const Options = () => {
 
   const addLimit = () => {
     if (newDomain && newLimit) {
-      let domain = newDomain.trim();
-      if (domain.startsWith('www.')) domain = domain.substring(4);
+      const domain = cleanDomainInput(newDomain);
+      if (!domain) return;
 
       const updated = { ...limits, [domain]: parseInt(newLimit) * 60 };
       saveLimits(updated);
@@ -55,8 +72,8 @@ const Options = () => {
 
   const addCategory = () => {
     if (newCategoryDomain && newCategoryType) {
-      let domain = newCategoryDomain.trim();
-      if (domain.startsWith('www.')) domain = domain.substring(4);
+      const domain = cleanDomainInput(newCategoryDomain);
+      if (!domain) return;
 
       const updated = { ...categories, [domain]: newCategoryType };
       saveCategories(updated);
