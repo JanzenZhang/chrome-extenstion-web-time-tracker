@@ -89,17 +89,32 @@
         }
     }
 
+    let pollInterval: any = null;
+
     function fetchStatus() {
-        chrome.runtime.sendMessage({ type: 'GET_STATUS' }, (response) => {
-            if (chrome.runtime.lastError) return;
-            currentStatus = response;
-            renderOverlay();
-        });
+        try {
+            chrome.runtime.sendMessage({ type: 'GET_STATUS' }, (response) => {
+                if (chrome.runtime.lastError) {
+                    // Ignore typical disconnected errors
+                    return;
+                }
+                currentStatus = response;
+                renderOverlay();
+            });
+        } catch (error: any) {
+            if (error?.message?.includes('Extension context invalidated')) {
+                console.warn('[WebTime Tracker] Extension context invalidated. Stopping background polls.');
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+            }
+        }
     }
 
     function initContentScript() {
         fetchStatus();
-        setInterval(fetchStatus, 30000); // Poll every 30 seconds
+        pollInterval = setInterval(fetchStatus, 30000); // Poll every 30 seconds
     }
 
     if (document.readyState === 'loading') {
