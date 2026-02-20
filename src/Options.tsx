@@ -32,7 +32,10 @@ const Options = () => {
 
   const addLimit = () => {
     if (newDomain && newLimit) {
-      const updated = { ...limits, [newDomain]: parseInt(newLimit) * 60 };
+      let domain = newDomain.trim();
+      if (domain.startsWith('www.')) domain = domain.substring(4);
+
+      const updated = { ...limits, [domain]: parseInt(newLimit) * 60 };
       saveLimits(updated);
       setNewDomain('');
       setNewLimit('');
@@ -52,7 +55,10 @@ const Options = () => {
 
   const addCategory = () => {
     if (newCategoryDomain && newCategoryType) {
-      const updated = { ...categories, [newCategoryDomain]: newCategoryType };
+      let domain = newCategoryDomain.trim();
+      if (domain.startsWith('www.')) domain = domain.substring(4);
+
+      const updated = { ...categories, [domain]: newCategoryType };
       saveCategories(updated);
       setNewCategoryDomain('');
     }

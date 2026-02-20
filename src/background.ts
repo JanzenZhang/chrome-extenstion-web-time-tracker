@@ -85,7 +85,11 @@ let lastUpdateTime: number = Date.now();
 function getDomain(url: string | undefined): string | null {
   if (!url) return null;
   try {
-    return new URL(url).hostname;
+    let hostname = new URL(url).hostname;
+    if (hostname.startsWith('www.')) {
+      hostname = hostname.substring(4);
+    }
+    return hostname;
   } catch (e) {
     return null;
   }
