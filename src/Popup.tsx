@@ -8,14 +8,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#8dd1e1', '#a4de6c', '#d0ed57'];
 
+import { ThemeToggle } from './components/ThemeToggle';
+
+import { getCategoryForDomain } from './lib/categories';
+
 const Popup = () => {
   const [stats, setStats] = useState<any>({});
+  const [categories, setCategories] = useState<Record<string, string>>({});
   const [currentView, setCurrentView] = useState('today');
 
   useEffect(() => {
     const loadStats = async () => {
-      const data = await chrome.storage.local.get('stats');
+      const data = await chrome.storage.local.get(['stats', 'categories']);
       setStats(data.stats || {});
+      setCategories((data.categories || {}) as Record<string, string>);
     };
     loadStats();
     const interval = setInterval(loadStats, 5000);
@@ -54,14 +60,35 @@ const Popup = () => {
     return h > 0 ? `${h}小时 ${m}分` : `${m}分`;
   };
 
+  const getProductivityMetrics = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const dayStats = stats[today] || {};
+
+    let prodTime = 0;
+    let entTime = 0;
+
+    Object.entries(dayStats).forEach(([domain, seconds]) => {
+      const cat = getCategoryForDomain(domain, categories);
+      if (cat === 'Productivity') prodTime += (seconds as number);
+      if (cat === 'Entertainment') entTime += (seconds as number);
+    });
+
+    const totalTracked = prodTime + entTime;
+    const score = totalTracked > 0 ? Math.round((prodTime / totalTracked) * 100) : 0;
+
+    return { prodTime, entTime, score, totalTracked };
+  };
+
   const todayData = getTodayData();
   const weeklyTrend = getWeeklyTrend();
+  const prodMetrics = getProductivityMetrics();
 
   return (
     <div className="w-[400px] p-4 bg-background">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold tracking-tight">WebTime 时间助手</h1>
         <div className="flex gap-2">
+          <ThemeToggle />
           <Button variant="outline" size="icon" onClick={() => {
             const blob = new Blob([JSON.stringify(stats, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -101,7 +128,7 @@ const Popup = () => {
             )}
           </TabsTrigger>
         </TabsList>
-        
+
         <AnimatePresence mode="wait">
           <TabsContent value="today" key="today" className="space-y-4 outline-none">
             <motion.div
@@ -110,6 +137,26 @@ const Popup = () => {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
+              {prodMetrics.totalTracked > 0 && (
+                <Card className="mb-4">
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-sm font-medium">✨ 专注力评分</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <div className="flex items-center justify-between">
+                      <div className="text-3xl font-bold text-primary">{prodMetrics.score}<span className="text-sm font-normal text-muted-foreground ml-1">分</span></div>
+                      <div className="text-right text-xs text-muted-foreground space-y-1">
+                        <div><span className="inline-block w-2, h-2 rounded-full bg-green-500 mr-1"></span>生产力: {formatTime(prodMetrics.prodTime)}</div>
+                        <div><span className="inline-block w-2, h-2 rounded-full bg-orange-400 mr-1"></span>娱乐: {formatTime(prodMetrics.entTime)}</div>
+                      </div>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2 mt-3 overflow-hidden">
+                      <div className="bg-primary h-2 rounded-full transition-all duration-500" style={{ width: `${prodMetrics.score}%` }}></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <Card>
                 <CardHeader className="p-4">
                   <CardTitle className="text-sm font-medium">网站使用时长分布</CardTitle>
@@ -130,7 +177,7 @@ const Popup = () => {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: number) => formatTime(value)} />
+                    <Tooltip formatter={(value: any) => formatTime(value as number)} />
                   </PieChart>
                 </CardContent>
               </Card>
@@ -164,7 +211,7 @@ const Popup = () => {
                   <BarChart width={350} height={250} data={weeklyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}h`} />
-                    <Tooltip cursor={{fill: 'rgba(0,0,0,0.05)'}} contentStyle={{ borderRadius: '8px' }} />
+                    <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '8px' }} />
                     <Bar dataKey="hours" name="使用时长 (小时)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} isAnimationActive={false} />
                   </BarChart>
                 </CardContent>

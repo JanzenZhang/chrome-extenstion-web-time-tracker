@@ -19,11 +19,11 @@ async function updateTime() {
   if (delta < 1) return;
 
   const today = new Date().toISOString().split('T')[0];
-  
-  const data = await chrome.storage.local.get(['stats', 'limits', 'notifications']);
-  const stats = data.stats || {};
-  const limits = data.limits || {};
-  const notifications = data.notifications || {};
+
+  const data = await chrome.storage.local.get(['stats', 'limits', 'notifications', 'categories']);
+  const stats = (data.stats || {}) as Record<string, Record<string, number>>;
+  const limits = (data.limits || {}) as Record<string, number>;
+  const notifications = (data.notifications || {}) as Record<string, string>;
 
   if (!stats[today]) stats[today] = {};
   stats[today][currentDomain] = (stats[today][currentDomain] || 0) + delta;
@@ -85,10 +85,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 function handleHourlyChime() {
   const now = new Date();
   const hour = now.getHours();
-  
+
   let title = '整点报时';
   let message = `现在是 ${hour} 点整。`;
-  
+
   // Late night check: 23:00 - 05:00
   if (hour >= 23 || hour <= 5) {
     title = '深夜提醒';
@@ -121,12 +121,13 @@ function setupHourlyAlarm() {
 setupHourlyAlarm();
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get(['stats', 'limits', 'notifications'], (result) => {
+  chrome.storage.local.get(['stats', 'limits', 'notifications', 'categories'], (result) => {
     if (!result.stats) chrome.storage.local.set({ stats: {} });
     if (!result.limits) chrome.storage.local.set({ limits: {} });
     if (!result.notifications) chrome.storage.local.set({ notifications: {} });
+    if (!result.categories) chrome.storage.local.set({ categories: {} });
   });
-  
+
   // Force reset alarm on install/update to ensure correct timing
   const nextHour = new Date();
   nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
