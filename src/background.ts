@@ -14,10 +14,14 @@ function getDomain(url: string | undefined): string | null {
 }
 
 async function updateTime() {
-  if (!currentDomain) return;
+  if (!currentDomain) {
+    console.log('[WebTime] updateTime skipped: no currentDomain');
+    return;
+  }
 
   const now = Date.now();
   const delta = Math.floor((now - lastUpdateTime) / 1000);
+  console.log(`[WebTime] updateTime for ${currentDomain} - delta: ${delta}s`);
   if (delta < 1) return;
 
   const today = new Date().toISOString().split('T')[0];
@@ -29,6 +33,8 @@ async function updateTime() {
 
   if (!stats[today]) stats[today] = {};
   stats[today][currentDomain] = (stats[today][currentDomain] || 0) + delta;
+
+  console.log(`[WebTime] Updated stats for ${currentDomain}: ${stats[today][currentDomain]}s`);
 
   // Check limits
   if (limits[currentDomain] && stats[today][currentDomain] >= limits[currentDomain]) {
@@ -51,22 +57,27 @@ async function updateTime() {
 }
 
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  console.log('[WebTime] Tab activated', activeInfo);
   await updateTime();
   const tab = await chrome.tabs.get(activeInfo.tabId);
   currentTabId = activeInfo.tabId;
   currentDomain = getDomain(tab.url);
   lastUpdateTime = Date.now();
+  console.log(`[WebTime] New domain is now: ${currentDomain}`);
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (tabId === currentTabId && changeInfo.url) {
+    console.log('[WebTime] Tab updated (URL changed)', changeInfo.url);
     await updateTime();
     currentDomain = getDomain(changeInfo.url);
     lastUpdateTime = Date.now();
+    console.log(`[WebTime] New domain is now: ${currentDomain}`);
   }
 });
 
 chrome.idle.onStateChanged.addListener(async (state) => {
+  console.log('[WebTime] Idle state changed:', state);
   if (state === 'active') {
     lastUpdateTime = Date.now();
   } else {
@@ -143,14 +154,19 @@ chrome.runtime.onInstalled.addListener(() => {
 (self as any).handleHourlyChime = handleHourlyChime;
 
 async function init() {
-  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  if (tab) {
-    currentTabId = tab.id || null;
-    currentDomain = getDomain(tab.url);
-    lastUpdateTime = Date.now();
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (tab) {
+      currentTabId = tab.id || null;
+      currentDomain = getDomain(tab.url);
+      lastUpdateTime = Date.now();
+    }
+  } catch (e) {
+    console.error("Init failed", e);
   }
 }
 
+// Call init without awaiting to avoid blocking Service Worker startup
 init();
 
 // --- Communications with Content Script ---
