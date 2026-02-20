@@ -34,8 +34,28 @@ const Popup = () => {
   const getTodayData = () => {
     const today = new Date().toISOString().split('T')[0];
     const dayStats = stats[today] || {};
-    return Object.entries(dayStats)
-      .map(([name, value]) => ({ name, value: value as number }))
+
+    // Aggregate subdomains
+    const aggregated: Record<string, number> = {};
+    Object.entries(dayStats).forEach(([domain, value]) => {
+      let baseDomain = domain;
+      if (domain.startsWith('www.')) {
+        baseDomain = domain.substring(4);
+      } else {
+        // Try to find if this is a subdomain of a known category
+        for (const catDomain of Object.keys(categories)) {
+          if (domain.endsWith('.' + catDomain)) {
+            baseDomain = catDomain;
+            break;
+          }
+        }
+      }
+
+      aggregated[baseDomain] = (aggregated[baseDomain] || 0) + (value as number);
+    });
+
+    return Object.entries(aggregated)
+      .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
   };
