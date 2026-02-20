@@ -137,7 +137,7 @@ const Popup = () => {
       </div>
 
       <Tabs defaultValue="today" onValueChange={setCurrentView} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 relative bg-muted p-1"> {/* Changed grid-cols-2 to grid-cols-3 */}
+        <TabsList className="grid w-full grid-cols-3 relative bg-muted p-1">
           <TabsTrigger value="today" className="z-10 h-8">
             <span className="relative z-20">今日统计</span>
             {currentView === 'today' && (
@@ -149,7 +149,7 @@ const Popup = () => {
             )}
           </TabsTrigger>
           <TabsTrigger value="week" className="z-10 h-8">
-            <span className="relative z-20">本周趋势</span>
+            <span className="relative z-20">过去七天</span>
             {currentView === 'week' && (
               <motion.div
                 layoutId="active-pill"
@@ -158,16 +158,14 @@ const Popup = () => {
               />
             )}
           </TabsTrigger>
-          <TabsTrigger value="weekly" className="z-10 h-8">
-            <span className="relative z-20">过去七天</span>
-            {currentView === 'weekly' && (
-              <div className="absolute inset-0 bg-background rounded-sm shadow-sm z-10" />
-            )}
-          </TabsTrigger>
           <TabsTrigger value="focus" className="z-10 h-8">
             <span className="relative z-20">专注模式</span>
             {currentView === 'focus' && (
-              <div className="absolute inset-0 bg-background rounded-sm shadow-sm z-10" />
+              <motion.div
+                layoutId="active-pill"
+                className="absolute inset-0 bg-background rounded-md shadow-sm z-10"
+                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+              />
             )}
           </TabsTrigger>
         </TabsList>
