@@ -24,6 +24,12 @@ export default defineConfig({
           }
           return 'assets/[name]-[hash].js';
         },
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name && assetInfo.name.endsWith('.css')) {
+            return 'assets/[name].css';
+          }
+          return 'assets/[name]-[hash].[ext]';
+        },
       },
     },
   },
