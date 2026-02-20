@@ -261,6 +261,69 @@ const Popup = () => {
               </Card>
             </motion.div>
           </TabsContent>
+
+          <TabsContent value="focus" key="focus" className="outline-none">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-4"
+            >
+              <Card>
+                <CardHeader className="text-center p-4">
+                  <CardTitle className="text-xl">🍅 专注模式</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 p-4 pt-0">
+                  <p className="text-sm text-center text-muted-foreground mb-4">
+                    开启后，所有“娱乐”和“中立”网站将会被拦截，以保持专注。
+                  </p>
+
+                  {!focusMode.active ? (
+                    <div className="space-y-4">
+                      <div className="flex flex-col space-y-2">
+                        <label htmlFor="focus-minutes" className="text-sm font-medium leading-none">专注时长 (分钟)</label>
+                        <select
+                          id="focus-minutes"
+                          className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={focusMinutes}
+                          onChange={(e) => setFocusMinutes(e.target.value)}
+                        >
+                          <option value="15">15 分钟 (快速专注)</option>
+                          <option value="25">25 分钟 (标准番茄钟)</option>
+                          <option value="45">45 分钟 (深度工作)</option>
+                          <option value="60">60 分钟 (极限挑战)</option>
+                        </select>
+                      </div>
+                      <Button
+                        className="w-full text-md h-12"
+                        onClick={startFocusMode}
+                      >
+                        开始专注
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center space-y-6 py-4">
+                      <div className="text-6xl font-mono tabular-nums text-primary font-bold tracking-tight">
+                        {getRemainingFocusTime()}
+                      </div>
+                      <p className="text-muted-foreground animate-pulse text-sm font-medium">
+                        专注进行中，请保持状态！
+                      </p>
+                      <Button
+                        variant="destructive"
+                        size="lg"
+                        className="w-full mt-2"
+                        onClick={stopFocusMode}
+                      >
+                        放弃专注 (提前结束)
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
         </AnimatePresence>
       </Tabs>
     </div>
