@@ -15,16 +15,19 @@ import { getCategoryForDomain } from './lib/categories';
 const Popup = () => {
   const [stats, setStats] = useState<any>({});
   const [categories, setCategories] = useState<Record<string, string>>({});
+  const [focusMode, setFocusMode] = useState<{ active: boolean, endTime: number | null }>({ active: false, endTime: null });
   const [currentView, setCurrentView] = useState('today');
+  const [focusMinutes, setFocusMinutes] = useState('25');
 
   useEffect(() => {
     const loadStats = async () => {
-      const data = await chrome.storage.local.get(['stats', 'categories']);
+      const data = await chrome.storage.local.get(['stats', 'categories', 'focusMode']);
       setStats(data.stats || {});
       setCategories((data.categories || {}) as Record<string, string>);
+      setFocusMode(data.focusMode as { active: boolean, endTime: number | null } || { active: false, endTime: null });
     };
     loadStats();
-    const interval = setInterval(loadStats, 5000);
+    const interval = setInterval(loadStats, 1000); // Poll every second for timer updates
     return () => clearInterval(interval);
   }, []);
 
@@ -79,6 +82,34 @@ const Popup = () => {
     return { prodTime, entTime, score, totalTracked };
   };
 
+  const startFocusMode = async () => {
+    const mins = parseInt(focusMinutes);
+    if (isNaN(mins) || mins <= 0) return;
+    const endTime = Date.now() + mins * 60 * 1000;
+    const newState = { active: true, endTime };
+    await chrome.storage.local.set({ focusMode: newState });
+    setFocusMode(newState);
+  };
+
+  const stopFocusMode = async () => {
+    const newState = { active: false, endTime: null };
+    await chrome.storage.local.set({ focusMode: newState });
+    setFocusMode(newState);
+  };
+
+  const getRemainingFocusTime = () => {
+    if (!focusMode.active || !focusMode.endTime) return '00:00';
+    const remainingMs = focusMode.endTime - Date.now();
+    if (remainingMs <= 0) {
+      // Auto stop if it's past end time but state hasn't updated
+      stopFocusMode();
+      return '00:00';
+    }
+    const m = Math.floor(remainingMs / 60000);
+    const s = Math.floor((remainingMs % 60000) / 1000);
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
   const todayData = getTodayData();
   const weeklyTrend = getWeeklyTrend();
   const prodMetrics = getProductivityMetrics();
@@ -106,7 +137,7 @@ const Popup = () => {
       </div>
 
       <Tabs defaultValue="today" onValueChange={setCurrentView} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 relative bg-muted p-1">
+        <TabsList className="grid w-full grid-cols-3 relative bg-muted p-1"> {/* Changed grid-cols-2 to grid-cols-3 */}
           <TabsTrigger value="today" className="z-10 h-8">
             <span className="relative z-20">今日统计</span>
             {currentView === 'today' && (
@@ -125,6 +156,18 @@ const Popup = () => {
                 className="absolute inset-0 bg-background rounded-md shadow-sm z-10"
                 transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
               />
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="weekly" className="z-10 h-8">
+            <span className="relative z-20">过去七天</span>
+            {currentView === 'weekly' && (
+              <div className="absolute inset-0 bg-background rounded-sm shadow-sm z-10" />
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="focus" className="z-10 h-8">
+            <span className="relative z-20">专注模式</span>
+            {currentView === 'focus' && (
+              <div className="absolute inset-0 bg-background rounded-sm shadow-sm z-10" />
             )}
           </TabsTrigger>
         </TabsList>

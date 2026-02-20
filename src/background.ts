@@ -1,3 +1,5 @@
+import { getCategoryForDomain } from './lib/categories';
+
 let currentTabId: number | null = null;
 let currentDomain: string | null = null;
 let lastUpdateTime: number = Date.now();
@@ -150,3 +152,58 @@ async function init() {
 }
 
 init();
+
+// --- Communications with Content Script ---
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'GET_STATUS') {
+    handleGetStatus(sender, sendResponse);
+    return true; // Keep the message channel open for async response
+  }
+});
+
+async function handleGetStatus(sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
+  const url = sender.tab?.url || sender.url;
+  const domain = getDomain(url);
+
+  if (!domain) {
+    sendResponse(null);
+    return;
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const data = await chrome.storage.local.get(['stats', 'limits', 'focusMode', 'categories']);
+
+  const stats = (data.stats || {}) as Record<string, Record<string, number>>;
+  const limits = (data.limits || {}) as Record<string, number>;
+  const focusMode = (data.focusMode || { active: false, endTime: null }) as { active: boolean, endTime: number | null };
+  const categories = (data.categories || {}) as Record<string, string>;
+
+  // 1. Check Focus Mode Block
+  if (focusMode.active && focusMode.endTime && focusMode.endTime > Date.now()) {
+    const category = getCategoryForDomain(domain, categories);
+    if (category !== 'Productivity') {
+      sendResponse({ type: 'FOCUS_BLOCKED' });
+      return;
+    }
+  }
+
+  // 2. Check Daily Limit
+  const limitSeconds = limits[domain];
+  if (limitSeconds) {
+    const usedSeconds = stats[today]?.[domain] || 0;
+    const remainingSeconds = limitSeconds - usedSeconds;
+
+    if (remainingSeconds <= 0) {
+      sendResponse({ type: 'BLOCKED' });
+      return;
+    } else if (remainingSeconds <= 300) { // 5 minutes warning
+      sendResponse({
+        type: 'WARNING',
+        timeLeftMinutes: Math.ceil(remainingSeconds / 60)
+      });
+      return;
+    }
+  }
+
+  sendResponse(null);
+}
