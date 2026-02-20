@@ -73,7 +73,7 @@ chrome.idle.onStateChanged.addListener(async (state) => {
   }
 });
 
-chrome.alarms.create('updateStats', { periodInMinutes: 0.1 });
+chrome.alarms.create('updateStats', { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'updateStats') {
     updateTime();
