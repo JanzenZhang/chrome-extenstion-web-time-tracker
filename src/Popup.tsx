@@ -12,6 +12,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 import { ThemeToggle } from './components/ThemeToggle';
 
 import { getCategoryForDomain } from './lib/categories';
+import Favicon from './components/Favicon';
 
 const Popup = () => {
   const [stats, setStats] = useState<Record<string, Record<string, number>>>({});
@@ -309,8 +310,9 @@ const Popup = () => {
                 {todayData.map((item, index) => (
                   <div key={item.name} className="flex items-center justify-between text-sm py-1 border-b border-muted last:border-0">
                     <div className="flex items-center gap-2 truncate">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                      <span className="truncate max-w-[200px]" title={item.name}>{item.name}</span>
+                      <Favicon domain={item.name} size={16} />
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                      <span className="truncate max-w-[180px]" title={item.name}>{item.name}</span>
                     </div>
                     <span className="text-muted-foreground font-medium">{formatTime(item.value)}</span>
                   </div>
@@ -326,8 +328,9 @@ const Popup = () => {
                     {goalProgress.map((g) => (
                       <div key={g.domain} className="space-y-1">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="truncate max-w-[200px] font-medium" title={g.domain}>
-                            {g.achieved ? '🏆' : '🎯'} {g.domain}
+                          <span className="flex items-center gap-1.5 truncate max-w-[200px] font-medium" title={g.domain}>
+                            {g.achieved ? '🏆' : <Favicon domain={g.domain} size={14} />}
+                            {g.domain}
                           </span>
                           <span className={`text-xs font-medium ${g.achieved ? 'text-green-500' : 'text-muted-foreground'}`}>
                             {formatTime(g.usedSeconds)} / {formatTime(g.goalSeconds)}

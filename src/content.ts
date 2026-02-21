@@ -152,9 +152,12 @@
               transition: opacity 0.2s;
             `;
 
-            const icon = document.createElement('span');
-            icon.style.fontSize = '0.9rem';
-            icon.textContent = '⏱';
+            const icon = document.createElement('img');
+            icon.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16`;
+            icon.width = 14;
+            icon.height = 14;
+            icon.style.cssText = 'border-radius: 2px; flex-shrink: 0;';
+            icon.onerror = () => { icon.style.display = 'none'; };
 
             widgetDomainSpan = document.createElement('span');
             widgetDomainSpan.style.color = '#d1d5db';

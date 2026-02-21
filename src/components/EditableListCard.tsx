@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, Edit2, Check, X } from 'lucide-react';
 import { cleanDomainInput } from '@/lib/utils';
+import Favicon from './Favicon';
 
 /** Configuration for the value field (the second input alongside the domain) */
 interface ValueFieldConfig {
@@ -182,11 +183,14 @@ const EditableListCard: React.FC<EditableListCardProps> = ({
                                         {renderValueInput(editValueInput, setEditValueInput, `${title}-edit-value`, `h-8 ${valueField.widthClass || 'w-24'}`)}
                                     </div>
                                 ) : (
-                                    <div className="grid gap-1">
-                                        <span className="font-medium">{key}</span>
-                                        <span className="text-sm text-muted-foreground">
-                                            {valueField.formatDisplay(storedValue)}
-                                        </span>
+                                    <div className="flex items-center gap-2">
+                                        <Favicon domain={key} size={20} />
+                                        <div className="grid gap-1">
+                                            <span className="font-medium">{key}</span>
+                                            <span className="text-sm text-muted-foreground">
+                                                {valueField.formatDisplay(storedValue)}
+                                            </span>
+                                        </div>
                                     </div>
                                 )}
                                 <div className="flex gap-1">
