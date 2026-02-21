@@ -310,16 +310,21 @@ const Popup = () => {
               </Card>
 
               <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2 mt-4">
-                {todayData.map((item, index) => (
-                  <div key={item.name} className="flex items-center justify-between text-sm py-1 border-b border-muted last:border-0">
-                    <div className="flex items-center gap-2 truncate">
-                      <Favicon domain={item.name} size={16} />
-                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                      <span className="truncate max-w-[180px]" title={item.name}>{item.name}</span>
+                {todayData.map((item, index) => {
+                  const cat = getCategoryForDomain(item.name, categories, autoCategories);
+                  const catLabel = cat === 'Productivity' ? '🟢' : cat === 'Entertainment' ? '🟠' : '⚪';
+                  return (
+                    <div key={item.name} className="flex items-center justify-between text-sm py-1 border-b border-muted last:border-0">
+                      <div className="flex items-center gap-2 truncate">
+                        <Favicon domain={item.name} size={16} />
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                        <span className="truncate max-w-[150px]" title={item.name}>{item.name}</span>
+                        <span className="text-xs shrink-0" title={cat}>{catLabel}</span>
+                      </div>
+                      <span className="text-muted-foreground font-medium">{formatTime(item.value)}</span>
                     </div>
-                    <span className="text-muted-foreground font-medium">{formatTime(item.value)}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {goalProgress.length > 0 && (

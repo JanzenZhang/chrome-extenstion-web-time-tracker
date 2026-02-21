@@ -231,12 +231,18 @@ const NewTab = () => {
                                 )}
                                 {topSites.map((site, i) => {
                                     const pct = totalToday > 0 ? Math.round((site.value / totalToday) * 100) : 0;
+                                    const cat = getCategoryForDomain(site.name, categories, autoCategories);
+                                    const catColor = cat === 'Productivity' ? 'text-green-500' : cat === 'Entertainment' ? 'text-orange-400' : 'text-gray-400';
+                                    const catLabel = cat === 'Productivity' ? '生产力' : cat === 'Entertainment' ? '娱乐' : '';
                                     return (
                                         <div key={site.name} className="flex items-center gap-3">
                                             <Favicon domain={site.name} size={20} />
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-sm font-medium truncate" title={site.name}>{site.name}</span>
+                                                    <div className="flex items-center gap-1.5 truncate">
+                                                        <span className="text-sm font-medium truncate" title={site.name}>{site.name}</span>
+                                                        {catLabel && <span className={`text-[10px] ${catColor} shrink-0`}>({catLabel})</span>}
+                                                    </div>
                                                     <span className="text-xs text-muted-foreground shrink-0 ml-2">{formatTime(site.value)}</span>
                                                 </div>
                                                 <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
