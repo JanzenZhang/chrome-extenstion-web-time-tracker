@@ -60,7 +60,7 @@ const NewTab = () => {
     // Today's top sites
     const topSites = Object.entries(todayStats)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 6)
+        .slice(0, 15)
         .map(([name, value]) => ({ name, value }));
 
     const totalToday = Object.values(todayStats).reduce((a, b) => a + b, 0);
@@ -225,7 +225,7 @@ const NewTab = () => {
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-base font-semibold">🌐 今日访问</CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-3">
+                            <CardContent className="space-y-3 max-h-[420px] overflow-y-auto">
                                 {topSites.length === 0 && (
                                     <p className="text-muted-foreground text-sm text-center py-6">今天还没有浏览记录</p>
                                 )}
