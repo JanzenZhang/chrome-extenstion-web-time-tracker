@@ -103,6 +103,9 @@
     }
 
     // --- Floating Time Widget ---
+    let widgetDomainSpan: HTMLSpanElement | null = null;
+    let widgetTimeSpan: HTMLSpanElement | null = null;
+
     function renderTimeWidget(seconds: number, domain: string) {
         // Don't show widget if dismissed, or if there's a blocking overlay
         if (widgetDismissed) return;
@@ -110,79 +113,91 @@
             if (timeWidgetElement) {
                 timeWidgetElement.remove();
                 timeWidgetElement = null;
+                widgetDomainSpan = null;
+                widgetTimeSpan = null;
             }
             return;
-        }
-
-        if (!timeWidgetElement) {
-            timeWidgetElement = document.createElement('div');
-            timeWidgetElement.id = 'webtime-time-widget';
-            document.body.appendChild(timeWidgetElement);
-            ensureAnimationStyles();
         }
 
         // Position: bottom-right, above potential warning overlay
         const bottomOffset = (currentStatus && currentStatus.type === 'WARNING') ? 100 : 20;
 
-        timeWidgetElement.style.cssText = `
-          position: fixed;
-          bottom: ${bottomOffset}px;
-          right: 20px;
-          z-index: 2147483646;
-          background-color: rgba(17, 24, 39, 0.85);
-          color: white;
-          border: 1px solid rgba(55, 65, 81, 0.6);
-          border-radius: 0.5rem;
-          padding: 0.5rem 0.75rem;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-family: system-ui, -apple-system, sans-serif;
-          font-size: 0.8rem;
-          backdrop-filter: blur(8px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-          animation: webtime-fade-in 0.3s ease-out;
-          cursor: default;
-          user-select: none;
-          transition: opacity 0.2s;
-        `;
+        if (!timeWidgetElement) {
+            // Build DOM structure once
+            timeWidgetElement = document.createElement('div');
+            timeWidgetElement.id = 'webtime-time-widget';
+            ensureAnimationStyles();
 
-        timeWidgetElement.innerHTML = `
-            <span style="font-size: 0.9rem;">⏱</span>
-            <span style="color: #d1d5db;">${domain}</span>
-            <span style="font-weight: 600; color: #60a5fa;">${formatTimeShort(seconds)}</span>
-            <span id="webtime-widget-close" style="
-                margin-left: 0.25rem;
-                cursor: pointer;
-                color: #6b7280;
-                font-size: 0.75rem;
-                line-height: 1;
-                padding: 2px;
-                transition: color 0.15s;
-            " title="关闭">✕</span>
-        `;
+            timeWidgetElement.style.cssText = `
+              position: fixed;
+              bottom: ${bottomOffset}px;
+              right: 20px;
+              z-index: 2147483646;
+              background-color: rgba(17, 24, 39, 0.85);
+              color: white;
+              border: 1px solid rgba(55, 65, 81, 0.6);
+              border-radius: 0.5rem;
+              padding: 0.5rem 0.75rem;
+              display: flex;
+              align-items: center;
+              gap: 0.5rem;
+              font-family: system-ui, -apple-system, sans-serif;
+              font-size: 0.8rem;
+              backdrop-filter: blur(8px);
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+              animation: webtime-fade-in 0.3s ease-out;
+              cursor: default;
+              user-select: none;
+              opacity: 0.85;
+              transition: opacity 0.2s;
+            `;
 
-        // Attach close handler
-        const closeBtn = timeWidgetElement.querySelector('#webtime-widget-close');
-        if (closeBtn) {
+            const icon = document.createElement('span');
+            icon.style.fontSize = '0.9rem';
+            icon.textContent = '⏱';
+
+            widgetDomainSpan = document.createElement('span');
+            widgetDomainSpan.style.color = '#d1d5db';
+
+            widgetTimeSpan = document.createElement('span');
+            widgetTimeSpan.style.cssText = 'font-weight: 600; color: #60a5fa;';
+
+            const closeBtn = document.createElement('span');
+            closeBtn.title = '关闭';
+            closeBtn.textContent = '✕';
+            closeBtn.style.cssText = `
+              margin-left: 0.25rem; cursor: pointer; color: #6b7280;
+              font-size: 0.75rem; line-height: 1; padding: 2px; transition: color 0.15s;
+            `;
             closeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 widgetDismissed = true;
                 if (timeWidgetElement) {
                     timeWidgetElement.remove();
                     timeWidgetElement = null;
+                    widgetDomainSpan = null;
+                    widgetTimeSpan = null;
                 }
             });
+
+            timeWidgetElement.append(icon, widgetDomainSpan, widgetTimeSpan, closeBtn);
+
+            timeWidgetElement.addEventListener('mouseenter', () => {
+                if (timeWidgetElement) timeWidgetElement.style.opacity = '1';
+            });
+            timeWidgetElement.addEventListener('mouseleave', () => {
+                if (timeWidgetElement) timeWidgetElement.style.opacity = '0.85';
+            });
+
+            document.body.appendChild(timeWidgetElement);
+        } else {
+            // Only update position if needed
+            timeWidgetElement.style.bottom = `${bottomOffset}px`;
         }
 
-        // Hover effect: slightly increase opacity
-        timeWidgetElement.addEventListener('mouseenter', () => {
-            if (timeWidgetElement) timeWidgetElement.style.opacity = '1';
-        });
-        timeWidgetElement.addEventListener('mouseleave', () => {
-            if (timeWidgetElement) timeWidgetElement.style.opacity = '0.85';
-        });
-        timeWidgetElement.style.opacity = '0.85';
+        // Update text content only (no DOM rebuild)
+        if (widgetDomainSpan) widgetDomainSpan.textContent = domain;
+        if (widgetTimeSpan) widgetTimeSpan.textContent = formatTimeShort(seconds);
     }
 
     let pollInterval: any = null;
