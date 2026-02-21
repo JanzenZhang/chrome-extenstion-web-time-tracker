@@ -14,6 +14,7 @@
 - **🏷️ 智能分类** — 内置 60+ 主流网站分类（生产力/娱乐），支持自定义覆盖
 - **🔔 整点报时** — 每小时通知，深夜时段提醒休息
 - **🌓 暗色模式** — 支持亮色/暗色主题切换
+- **📰 New Tab 仪表盘** — 替换 Chrome 新标签页，展示今日统计、目标进度、一周趋势
 - **📦 数据导出** — 一键导出使用数据为 JSON 文件
 - **🧹 自动清理** — 自动清理 90 天前的历史数据，避免存储膨胀
 
@@ -36,8 +37,10 @@ src/
 ├── background.ts          # Service Worker：时间追踪、限额检查、通知
 ├── content.ts             # Content Script：页面拦截覆盖层
 ├── Popup.tsx              # 弹出窗口：统计、图表、专注模式
+├── NewTab.tsx             # New Tab 仪表盘：全屏数据概览
 ├── Options.tsx            # 设置页面：限额管理、分类管理
 ├── popup-main.tsx         # Popup 入口
+├── newtab-main.tsx        # New Tab 入口
 ├── options-main.tsx       # Options 入口
 ├── components/
 │   ├── LimitsSection.tsx  # 限额管理组件
