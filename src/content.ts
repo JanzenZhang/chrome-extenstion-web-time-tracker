@@ -3,6 +3,9 @@
     let overlayElement: HTMLDivElement | null = null;
     let timeWidgetElement: HTMLDivElement | null = null;
     let widgetDismissed = false;
+    let lastKnownSeconds = 0;
+    let lastKnownDomain = '';
+    let localTickInterval: any = null;
 
     function formatTimeShort(seconds: number): string {
         const h = Math.floor(seconds / 3600);
@@ -229,12 +232,23 @@
             chrome.runtime.sendMessage({ type: 'GET_SITE_TIME' }, (response) => {
                 if (chrome.runtime.lastError) return;
                 if (response && response.domain) {
-                    renderTimeWidget(response.seconds, response.domain);
+                    lastKnownSeconds = response.seconds;
+                    lastKnownDomain = response.domain;
+                    renderTimeWidget(lastKnownSeconds, lastKnownDomain);
                 }
             });
         } catch {
             // Ignore errors gracefully
         }
+    }
+
+    function startLocalTick() {
+        if (localTickInterval) return;
+        localTickInterval = setInterval(() => {
+            if (widgetDismissed || !widgetTimeSpan || !lastKnownDomain) return;
+            lastKnownSeconds++;
+            widgetTimeSpan.textContent = formatTimeShort(lastKnownSeconds);
+        }, 1000);
     }
 
     function extractPageMetadata() {
@@ -271,10 +285,11 @@
     function initContentScript() {
         fetchStatus();
         fetchSiteTime();
+        startLocalTick();
         pollInterval = setInterval(() => {
             fetchStatus();
             fetchSiteTime();
-        }, 30000); // Poll every 30 seconds
+        }, 30000); // Sync with background every 30 seconds
 
         // Extract metadata after page is loaded, with a small delay
         // to ensure dynamic content has rendered
