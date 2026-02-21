@@ -20,6 +20,8 @@ const Popup = () => {
   const [currentView, setCurrentView] = useState('today');
   const [focusMinutes, setFocusMinutes] = useState('25');
   const [focusDisplay, setFocusDisplay] = useState('00:00');
+  const [goals, setGoals] = useState<Record<string, number>>({});
+  const [achievements, setAchievements] = useState<Array<{ domain: string, date: string, goalMinutes: number }>>([]);
   const focusModeRef = useRef(focusMode);
 
   // Keep ref in sync for use in timer callback
@@ -30,10 +32,12 @@ const Popup = () => {
   // Load initial data once
   useEffect(() => {
     const loadStats = async () => {
-      const data = await chrome.storage.local.get(['stats', 'categories', 'focusMode']);
+      const data = await chrome.storage.local.get(['stats', 'categories', 'focusMode', 'goals', 'achievements']);
       setStats((data.stats || {}) as Record<string, Record<string, number>>);
       setCategories((data.categories || {}) as Record<string, string>);
       setFocusMode(data.focusMode as { active: boolean, endTime: number | null } || { active: false, endTime: null });
+      setGoals((data.goals || {}) as Record<string, number>);
+      setAchievements((data.achievements || []) as Array<{ domain: string, date: string, goalMinutes: number }>);
     };
     loadStats();
   }, []);
@@ -44,6 +48,8 @@ const Popup = () => {
       if (changes.stats) setStats((changes.stats.newValue || {}) as Record<string, Record<string, number>>);
       if (changes.categories) setCategories((changes.categories.newValue || {}) as Record<string, string>);
       if (changes.focusMode) setFocusMode((changes.focusMode.newValue || { active: false, endTime: null }) as { active: boolean, endTime: number | null });
+      if (changes.goals) setGoals((changes.goals.newValue || {}) as Record<string, number>);
+      if (changes.achievements) setAchievements((changes.achievements.newValue || []) as Array<{ domain: string, date: string, goalMinutes: number }>);
     };
     chrome.storage.onChanged.addListener(handler);
     return () => chrome.storage.onChanged.removeListener(handler);
@@ -169,6 +175,25 @@ const Popup = () => {
   const weeklyTrend = getWeeklyTrend();
   const prodMetrics = getProductivityMetrics();
 
+  const getGoalProgress = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayStats = stats[today] || {};
+
+    return Object.entries(goals).map(([domain, goalSeconds]) => {
+      let usedSeconds = 0;
+      for (const [statDomain, time] of Object.entries(todayStats)) {
+        if (statDomain === domain || statDomain.endsWith('.' + domain)) {
+          usedSeconds += time;
+        }
+      }
+      const achieved = achievements.some(a => a.domain === domain && a.date === today);
+      const percent = Math.min(100, Math.round((usedSeconds / goalSeconds) * 100));
+      return { domain, goalSeconds, usedSeconds, achieved, percent };
+    });
+  };
+
+  const goalProgress = getGoalProgress();
+
   return (
     <div className="w-[400px] p-4 bg-background">
       <div className="flex items-center justify-between mb-4">
@@ -291,6 +316,35 @@ const Popup = () => {
                   </div>
                 ))}
               </div>
+
+              {goalProgress.length > 0 && (
+                <Card className="mt-4">
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="text-sm font-medium">🎯 今日目标</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-2 space-y-3">
+                    {goalProgress.map((g) => (
+                      <div key={g.domain} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="truncate max-w-[200px] font-medium" title={g.domain}>
+                            {g.achieved ? '🏆' : '🎯'} {g.domain}
+                          </span>
+                          <span className={`text-xs font-medium ${g.achieved ? 'text-green-500' : 'text-muted-foreground'}`}>
+                            {formatTime(g.usedSeconds)} / {formatTime(g.goalSeconds)}
+                            {g.achieved && ' ✓'}
+                          </span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className={`h-1.5 rounded-full transition-all duration-500 ${g.achieved ? 'bg-green-500' : 'bg-primary'}`}
+                            style={{ width: `${g.percent}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
             </motion.div>
           </TabsContent>
 

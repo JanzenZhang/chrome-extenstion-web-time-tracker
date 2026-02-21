@@ -4,15 +4,18 @@ import { Button } from "@/components/ui/button";
 
 import { ThemeToggle } from './components/ThemeToggle';
 import LimitsSection from './components/LimitsSection';
+import GoalsSection from './components/GoalsSection';
 import CategoriesSection from './components/CategoriesSection';
 
 const Options = () => {
   const [limits, setLimits] = useState<Record<string, number>>({});
+  const [goals, setGoals] = useState<Record<string, number>>({});
   const [categories, setCategories] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    chrome.storage.local.get(['limits', 'categories'], (data) => {
+    chrome.storage.local.get(['limits', 'goals', 'categories'], (data) => {
       setLimits((data.limits || {}) as Record<string, number>);
+      setGoals((data.goals || {}) as Record<string, number>);
       setCategories((data.categories || {}) as Record<string, string>);
     });
   }, []);
@@ -22,6 +25,11 @@ const Options = () => {
     chrome.storage.local.set({ limits: newLimits });
   };
 
+  const saveGoals = (newGoals: Record<string, number>) => {
+    setGoals(newGoals);
+    chrome.storage.local.set({ goals: newGoals });
+  };
+
   const saveCategories = (newCats: Record<string, string>) => {
     setCategories(newCats);
     chrome.storage.local.set({ categories: newCats });
@@ -29,7 +37,7 @@ const Options = () => {
 
   const clearData = () => {
     if (confirm('确定要清空所有使用统计数据吗？此操作无法恢复。')) {
-      chrome.storage.local.set({ stats: {}, notifications: {} });
+      chrome.storage.local.set({ stats: {}, notifications: {}, achievements: [] });
     }
   };
 
@@ -42,6 +50,8 @@ const Options = () => {
 
       <div className="grid gap-6">
         <LimitsSection limits={limits} onSave={saveLimits} />
+
+        <GoalsSection goals={goals} onSave={saveGoals} />
 
         <CategoriesSection categories={categories} onSave={saveCategories} />
 
@@ -60,3 +70,4 @@ const Options = () => {
 };
 
 export default Options;
+

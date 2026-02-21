@@ -54,6 +54,12 @@ async function cleanupOldStats(retentionDays: number = 90) {
   }
 }
 
+function formatTimeShort(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return h > 0 ? `${h}小时${m}分` : `${m}分`;
+}
+
 async function updateTime() {
   if (!currentDomain) {
     return;
@@ -65,10 +71,12 @@ async function updateTime() {
 
   const today = new Date().toISOString().split('T')[0];
 
-  const data = await chrome.storage.local.get(['stats', 'limits', 'notifications', 'categories']);
+  const data = await chrome.storage.local.get(['stats', 'limits', 'notifications', 'categories', 'goals', 'achievements']);
   const stats = (data.stats || {}) as Record<string, Record<string, number>>;
   const limits = (data.limits || {}) as Record<string, number>;
   const notifications = (data.notifications || {}) as Record<string, string>;
+  const goals = (data.goals || {}) as Record<string, number>;
+  const achievements = (data.achievements || []) as Array<{ domain: string, date: string, goalMinutes: number }>;
 
   if (!stats[today]) stats[today] = {};
   stats[today][currentDomain] = (stats[today][currentDomain] || 0) + delta;
@@ -100,7 +108,35 @@ async function updateTime() {
     }
   }
 
-  await chrome.storage.local.set({ stats, notifications });
+  // Check goals achievement
+  const matchedGoalKey = findMatchingRuleKey(currentDomain, goals);
+  if (matchedGoalKey) {
+    const goalSeconds = goals[matchedGoalKey];
+    let usedSeconds = 0;
+    for (const [statDomain, time] of Object.entries(stats[today])) {
+      if (statDomain === matchedGoalKey || statDomain.endsWith('.' + matchedGoalKey)) {
+        usedSeconds += time;
+      }
+    }
+
+    if (usedSeconds >= goalSeconds) {
+      const alreadyAchieved = achievements.some(
+        a => a.domain === matchedGoalKey && a.date === today
+      );
+      if (!alreadyAchieved) {
+        achievements.push({ domain: matchedGoalKey, date: today, goalMinutes: Math.round(goalSeconds / 60) });
+        chrome.notifications.create(`goal-${matchedGoalKey}-${today}`, {
+          type: 'basic',
+          title: '🏆 目标达成！',
+          iconUrl: 'icon128.png',
+          message: `恭喜！你在 ${matchedGoalKey} 的今日使用目标（${Math.round(goalSeconds / 60)}分钟）已达成！`,
+          priority: 2
+        });
+      }
+    }
+  }
+
+  await chrome.storage.local.set({ stats, notifications, achievements });
   lastUpdateTime = now;
 }
 
@@ -137,6 +173,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     handleHourlyChime();
   } else if (alarm.name === 'dailyCleanup') {
     cleanupOldStats();
+  } else if (alarm.name === 'dailyReport') {
+    handleDailyReport();
   }
 });
 
@@ -181,13 +219,77 @@ setupHourlyAlarm();
 // Set up daily cleanup alarm
 chrome.alarms.create('dailyCleanup', { periodInMinutes: 1440 }); // Once per day
 
+// Set up daily report alarm at 22:00
+function setupDailyReportAlarm() {
+  chrome.alarms.get('dailyReport', (alarm) => {
+    if (!alarm) {
+      const next22 = new Date();
+      next22.setHours(22, 0, 0, 0);
+      if (next22.getTime() <= Date.now()) {
+        next22.setDate(next22.getDate() + 1);
+      }
+      chrome.alarms.create('dailyReport', {
+        when: next22.getTime(),
+        periodInMinutes: 1440
+      });
+    }
+  });
+}
+setupDailyReportAlarm();
+
+async function handleDailyReport() {
+  const today = new Date().toISOString().split('T')[0];
+  const data = await chrome.storage.local.get(['stats', 'categories', 'goals', 'achievements']);
+  const stats = (data.stats || {}) as Record<string, Record<string, number>>;
+  const categories = (data.categories || {}) as Record<string, string>;
+  const achievements = (data.achievements || []) as Array<{ domain: string, date: string, goalMinutes: number }>;
+
+  const todayStats = stats[today] || {};
+  const entries = Object.entries(todayStats).sort((a, b) => b[1] - a[1]);
+  const totalSeconds = entries.reduce((sum, [, s]) => sum + s, 0);
+
+  if (totalSeconds < 60) return; // Skip if barely used
+
+  let prodTime = 0;
+  let entTime = 0;
+  entries.forEach(([domain, seconds]) => {
+    const cat = getCategoryForDomain(domain, categories);
+    if (cat === 'Productivity') prodTime += seconds;
+    if (cat === 'Entertainment') entTime += seconds;
+  });
+  const tracked = prodTime + entTime;
+  const score = tracked > 0 ? Math.round((prodTime / tracked) * 100) : 0;
+
+  const top3 = entries.slice(0, 3)
+    .map(([d, s]) => `${d} ${formatTimeShort(s)}`)
+    .join('、');
+
+  const todayAchievements = achievements.filter(a => a.date === today);
+  const achievementText = todayAchievements.length > 0
+    ? `\n🏆 达成 ${todayAchievements.length} 个目标！`
+    : '';
+
+  chrome.notifications.create(`daily-report-${today}`, {
+    type: 'basic',
+    title: '📊 今日上网报告',
+    iconUrl: 'icon128.png',
+    message: `总时长 ${formatTimeShort(totalSeconds)}｜效率 ${score}分\nTop: ${top3}${achievementText}`,
+    priority: 1
+  });
+}
+
+// Expose for debugging
+(self as any).handleDailyReport = handleDailyReport;
+
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get(['stats', 'limits', 'notifications', 'categories'], (result) => {
+  chrome.storage.local.get(['stats', 'limits', 'notifications', 'categories', 'goals', 'achievements'], (result) => {
     const defaults: Record<string, object> = {};
     if (!result.stats) defaults.stats = {};
     if (!result.limits) defaults.limits = {};
     if (!result.notifications) defaults.notifications = {};
     if (!result.categories) defaults.categories = {};
+    if (!result.goals) defaults.goals = {};
+    if (!result.achievements) defaults.achievements = [];
     if (Object.keys(defaults).length > 0) {
       chrome.storage.local.set(defaults);
     }
@@ -203,6 +305,17 @@ chrome.runtime.onInstalled.addListener(() => {
 
   // Run cleanup on install/update
   cleanupOldStats();
+
+  // Reset daily report alarm on install/update
+  const next22 = new Date();
+  next22.setHours(22, 0, 0, 0);
+  if (next22.getTime() <= Date.now()) {
+    next22.setDate(next22.getDate() + 1);
+  }
+  chrome.alarms.create('dailyReport', {
+    when: next22.getTime(),
+    periodInMinutes: 1440
+  });
 });
 
 // Expose for debugging
@@ -228,9 +341,37 @@ init();
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GET_STATUS') {
     handleGetStatus(sender, sendResponse);
-    return true; // Keep the message channel open for async response
+    return true;
+  } else if (message.type === 'GET_SITE_TIME') {
+    handleGetSiteTime(sender, sendResponse);
+    return true;
   }
 });
+
+async function handleGetSiteTime(sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
+  const url = sender.tab?.url || sender.url;
+  const domain = getDomain(url);
+
+  if (!domain) {
+    sendResponse({ seconds: 0, domain: '' });
+    return;
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const data = await chrome.storage.local.get(['stats']);
+  const stats = (data.stats || {}) as Record<string, Record<string, number>>;
+  const todayStats = stats[today] || {};
+
+  // Sum up this domain and its subdomains
+  let totalSeconds = 0;
+  for (const [statDomain, time] of Object.entries(todayStats)) {
+    if (statDomain === domain || statDomain.endsWith('.' + domain) || domain.endsWith('.' + statDomain)) {
+      totalSeconds += time;
+    }
+  }
+
+  sendResponse({ seconds: totalSeconds, domain });
+}
 
 async function handleGetStatus(sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
   const url = sender.tab?.url || sender.url;
