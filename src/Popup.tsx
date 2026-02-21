@@ -23,6 +23,7 @@ const Popup = () => {
   const [focusDisplay, setFocusDisplay] = useState('00:00');
   const [goals, setGoals] = useState<Record<string, number>>({});
   const [achievements, setAchievements] = useState<Array<{ domain: string, date: string, goalMinutes: number }>>([]);
+  const [autoCategories, setAutoCategories] = useState<Record<string, string>>({});
   const focusModeRef = useRef(focusMode);
 
   // Keep ref in sync for use in timer callback
@@ -33,12 +34,13 @@ const Popup = () => {
   // Load initial data once
   useEffect(() => {
     const loadStats = async () => {
-      const data = await chrome.storage.local.get(['stats', 'categories', 'focusMode', 'goals', 'achievements']);
+      const data = await chrome.storage.local.get(['stats', 'categories', 'focusMode', 'goals', 'achievements', 'autoCategories']);
       setStats((data.stats || {}) as Record<string, Record<string, number>>);
       setCategories((data.categories || {}) as Record<string, string>);
       setFocusMode(data.focusMode as { active: boolean, endTime: number | null } || { active: false, endTime: null });
       setGoals((data.goals || {}) as Record<string, number>);
       setAchievements((data.achievements || []) as Array<{ domain: string, date: string, goalMinutes: number }>);
+      setAutoCategories((data.autoCategories || {}) as Record<string, string>);
     };
     loadStats();
   }, []);
@@ -51,6 +53,7 @@ const Popup = () => {
       if (changes.focusMode) setFocusMode((changes.focusMode.newValue || { active: false, endTime: null }) as { active: boolean, endTime: number | null });
       if (changes.goals) setGoals((changes.goals.newValue || {}) as Record<string, number>);
       if (changes.achievements) setAchievements((changes.achievements.newValue || []) as Array<{ domain: string, date: string, goalMinutes: number }>);
+      if (changes.autoCategories) setAutoCategories((changes.autoCategories.newValue || {}) as Record<string, string>);
     };
     chrome.storage.onChanged.addListener(handler);
     return () => chrome.storage.onChanged.removeListener(handler);
@@ -146,7 +149,7 @@ const Popup = () => {
     let entTime = 0;
 
     Object.entries(dayStats).forEach(([domain, seconds]) => {
-      const cat = getCategoryForDomain(domain, categories);
+      const cat = getCategoryForDomain(domain, categories, autoCategories);
       if (cat === 'Productivity') prodTime += seconds;
       if (cat === 'Entertainment') entTime += seconds;
     });

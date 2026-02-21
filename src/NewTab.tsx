@@ -14,14 +14,16 @@ const NewTab = () => {
     const [categories, setCategories] = useState<Record<string, string>>({});
     const [goals, setGoals] = useState<Record<string, number>>({});
     const [achievements, setAchievements] = useState<Array<{ domain: string, date: string, goalMinutes: number }>>([]);
+    const [autoCategories, setAutoCategories] = useState<Record<string, string>>({});
     const [currentTime, setCurrentTime] = useState(new Date());
 
     useEffect(() => {
-        chrome.storage.local.get(['stats', 'categories', 'goals', 'achievements'], (data) => {
+        chrome.storage.local.get(['stats', 'categories', 'goals', 'achievements', 'autoCategories'], (data) => {
             setStats((data.stats || {}) as Record<string, Record<string, number>>);
             setCategories((data.categories || {}) as Record<string, string>);
             setGoals((data.goals || {}) as Record<string, number>);
             setAchievements((data.achievements || []) as Array<{ domain: string, date: string, goalMinutes: number }>);
+            setAutoCategories((data.autoCategories || {}) as Record<string, string>);
         });
 
         const handler = (changes: { [key: string]: chrome.storage.StorageChange }) => {
@@ -29,6 +31,7 @@ const NewTab = () => {
             if (changes.categories) setCategories((changes.categories.newValue || {}) as Record<string, string>);
             if (changes.goals) setGoals((changes.goals.newValue || {}) as Record<string, number>);
             if (changes.achievements) setAchievements((changes.achievements.newValue || []) as Array<{ domain: string, date: string, goalMinutes: number }>);
+            if (changes.autoCategories) setAutoCategories((changes.autoCategories.newValue || {}) as Record<string, string>);
         };
         chrome.storage.onChanged.addListener(handler);
         return () => chrome.storage.onChanged.removeListener(handler);
@@ -65,7 +68,7 @@ const NewTab = () => {
     // Productivity metrics
     let prodTime = 0, entTime = 0;
     Object.entries(todayStats).forEach(([domain, seconds]) => {
-        const cat = getCategoryForDomain(domain, categories);
+        const cat = getCategoryForDomain(domain, categories, autoCategories);
         if (cat === 'Productivity') prodTime += seconds;
         if (cat === 'Entertainment') entTime += seconds;
     });
@@ -83,7 +86,7 @@ const NewTab = () => {
 
         let dayProd = 0, dayEnt = 0;
         Object.entries(dayStats).forEach(([domain, seconds]) => {
-            const cat = getCategoryForDomain(domain, categories);
+            const cat = getCategoryForDomain(domain, categories, autoCategories);
             if (cat === 'Productivity') dayProd += seconds;
             if (cat === 'Entertainment') dayEnt += seconds;
         });

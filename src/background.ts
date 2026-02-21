@@ -1,4 +1,4 @@
-import { getCategoryForDomain } from './lib/categories';
+import { getCategoryForDomain, classifyByMetadata } from './lib/categories';
 
 let currentTabId: number | null = null;
 let currentDomain: string | null = null;
@@ -239,9 +239,10 @@ setupDailyReportAlarm();
 
 async function handleDailyReport() {
   const today = new Date().toISOString().split('T')[0];
-  const data = await chrome.storage.local.get(['stats', 'categories', 'goals', 'achievements']);
+  const data = await chrome.storage.local.get(['stats', 'categories', 'autoCategories', 'goals', 'achievements']);
   const stats = (data.stats || {}) as Record<string, Record<string, number>>;
   const categories = (data.categories || {}) as Record<string, string>;
+  const autoCategories = (data.autoCategories || {}) as Record<string, string>;
   const achievements = (data.achievements || []) as Array<{ domain: string, date: string, goalMinutes: number }>;
 
   const todayStats = stats[today] || {};
@@ -253,7 +254,7 @@ async function handleDailyReport() {
   let prodTime = 0;
   let entTime = 0;
   entries.forEach(([domain, seconds]) => {
-    const cat = getCategoryForDomain(domain, categories);
+    const cat = getCategoryForDomain(domain, categories, autoCategories);
     if (cat === 'Productivity') prodTime += seconds;
     if (cat === 'Entertainment') entTime += seconds;
   });
@@ -282,7 +283,7 @@ async function handleDailyReport() {
 (self as any).handleDailyReport = handleDailyReport;
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get(['stats', 'limits', 'notifications', 'categories', 'goals', 'achievements'], (result) => {
+  chrome.storage.local.get(['stats', 'limits', 'notifications', 'categories', 'goals', 'achievements', 'autoCategories'], (result) => {
     const defaults: Record<string, object> = {};
     if (!result.stats) defaults.stats = {};
     if (!result.limits) defaults.limits = {};
@@ -290,6 +291,7 @@ chrome.runtime.onInstalled.addListener(() => {
     if (!result.categories) defaults.categories = {};
     if (!result.goals) defaults.goals = {};
     if (!result.achievements) defaults.achievements = [];
+    if (!result.autoCategories) defaults.autoCategories = {};
     if (Object.keys(defaults).length > 0) {
       chrome.storage.local.set(defaults);
     }
@@ -345,8 +347,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.type === 'GET_SITE_TIME') {
     handleGetSiteTime(sender, sendResponse);
     return true;
+  } else if (message.type === 'CLASSIFY_PAGE') {
+    handleClassifyPage(message, sender);
+    // No async response needed
   }
 });
+
+async function handleClassifyPage(message: any, sender: chrome.runtime.MessageSender) {
+  const url = sender.tab?.url || sender.url;
+  const domain = getDomain(url);
+  if (!domain) return;
+
+  // Skip if already in default dict or user custom categories
+  const data = await chrome.storage.local.get(['categories', 'autoCategories']);
+  const userCategories = (data.categories || {}) as Record<string, string>;
+  const autoCategories = (data.autoCategories || {}) as Record<string, string>;
+
+  // Check if already classified by any source
+  const existingCategory = getCategoryForDomain(domain, userCategories, autoCategories);
+  if (existingCategory !== 'Neutral') return; // Already classified
+
+  // Run classification
+  const result = classifyByMetadata(domain, message.metadata);
+  if (result && result.confidence >= 60) {
+    autoCategories[domain] = result.category;
+    await chrome.storage.local.set({ autoCategories });
+  }
+}
 
 async function handleGetSiteTime(sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
   const url = sender.tab?.url || sender.url;
@@ -383,16 +410,17 @@ async function handleGetStatus(sender: chrome.runtime.MessageSender, sendRespons
   }
 
   const today = new Date().toISOString().split('T')[0];
-  const data = await chrome.storage.local.get(['stats', 'limits', 'focusMode', 'categories']);
+  const data = await chrome.storage.local.get(['stats', 'limits', 'focusMode', 'categories', 'autoCategories']);
 
   const stats = (data.stats || {}) as Record<string, Record<string, number>>;
   const limits = (data.limits || {}) as Record<string, number>;
   const focusMode = (data.focusMode || { active: false, endTime: null }) as { active: boolean, endTime: number | null };
   const categories = (data.categories || {}) as Record<string, string>;
+  const autoCategories = (data.autoCategories || {}) as Record<string, string>;
 
   // 1. Check Focus Mode Block
   if (focusMode.active && focusMode.endTime && focusMode.endTime > Date.now()) {
-    const category = getCategoryForDomain(domain, categories);
+    const category = getCategoryForDomain(domain, categories, autoCategories);
     if (category !== 'Productivity') {
       sendResponse({ type: 'FOCUS_BLOCKED' });
       return;

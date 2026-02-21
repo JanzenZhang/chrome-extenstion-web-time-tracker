@@ -237,6 +237,37 @@
         }
     }
 
+    function extractPageMetadata() {
+        const getMeta = (name: string): string => {
+            const el = document.querySelector(`meta[name="${name}"], meta[property="${name}"]`);
+            return el?.getAttribute('content') || '';
+        };
+
+        return {
+            title: document.title || '',
+            description: getMeta('description') || getMeta('og:description'),
+            keywords: getMeta('keywords'),
+            ogType: getMeta('og:type'),
+        };
+    }
+
+    function sendMetadataForClassification() {
+        try {
+            const metadata = extractPageMetadata();
+            // Only send if we have enough data to classify
+            if (metadata.title || metadata.description || metadata.keywords || metadata.ogType) {
+                chrome.runtime.sendMessage({
+                    type: 'CLASSIFY_PAGE',
+                    metadata,
+                }, () => {
+                    if (chrome.runtime.lastError) { /* ignore */ }
+                });
+            }
+        } catch {
+            // Ignore errors gracefully
+        }
+    }
+
     function initContentScript() {
         fetchStatus();
         fetchSiteTime();
@@ -244,6 +275,10 @@
             fetchStatus();
             fetchSiteTime();
         }, 30000); // Poll every 30 seconds
+
+        // Extract metadata after page is loaded, with a small delay
+        // to ensure dynamic content has rendered
+        setTimeout(sendMetadataForClassification, 2000);
     }
 
     if (document.readyState === 'loading') {
