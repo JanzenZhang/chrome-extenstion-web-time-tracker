@@ -246,9 +246,9 @@
         if (localTickInterval) return;
         localTickInterval = setInterval(() => {
             if (widgetDismissed || !widgetTimeSpan || !lastKnownDomain) return;
-            lastKnownSeconds++;
+            lastKnownSeconds += 5;
             widgetTimeSpan.textContent = formatTimeShort(lastKnownSeconds);
-        }, 1000);
+        }, 5000);
     }
 
     function extractPageMetadata() {
