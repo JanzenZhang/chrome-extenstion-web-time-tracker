@@ -1,82 +1,4 @@
-const defaultCategories: Record<string, string> = {
-  // --- Productivity & Work ---
-  "github.com": "Productivity",
-  "gitlab.com": "Productivity",
-  "bitbucket.org": "Productivity",
-  "stackoverflow.com": "Productivity",
-  "developer.mozilla.org": "Productivity",
-  "notion.so": "Productivity",
-  "trello.com": "Productivity",
-  "jira.com": "Productivity",
-  "atlassian.com": "Productivity",
-  "slack.com": "Productivity",
-  "t.co": "Productivity",
-  "figma.com": "Productivity",
-  "docs.google.com": "Productivity",
-  "drive.google.com": "Productivity",
-  "mail.google.com": "Productivity",
-  "cursor.com": "Productivity",
-  "chatgpt.com": "Productivity",
-  "claude.ai": "Productivity",
-  "gemini.google.com": "Productivity",
-  "v2ex.com": "Productivity",
-  "juejin.cn": "Productivity",
-  "csdn.net": "Productivity",
-  "gitee.com": "Productivity",
-  "yuque.com": "Productivity",
-  "feishu.cn": "Productivity",
-  "dingtalk.com": "Productivity",
-  "shimo.im": "Productivity",
-  "aws.amazon.com": "Productivity",
-  "cloud.google.com": "Productivity",
-  "azure.microsoft.com": "Productivity",
-  "vercel.com": "Productivity",
-  "netlify.com": "Productivity",
-
-  // --- Entertainment & Social ---
-  "youtube.com": "Entertainment",
-  "bilibili.com": "Entertainment",
-  "netflix.com": "Entertainment",
-  "twitch.tv": "Entertainment",
-  "hulu.com": "Entertainment",
-  "disneyplus.com": "Entertainment",
-  "iqiyi.com": "Entertainment",
-  "v.qq.com": "Entertainment",
-  "youku.com": "Entertainment",
-  "douyin.com": "Entertainment",
-  "tiktok.com": "Entertainment",
-  "weibo.com": "Entertainment",
-  "twitter.com": "Entertainment",
-  "x.com": "Entertainment",
-  "facebook.com": "Entertainment",
-  "instagram.com": "Entertainment",
-  "reddit.com": "Entertainment",
-  "zhihu.com": "Entertainment",
-  "tieba.baidu.com": "Entertainment",
-  "steampowered.com": "Entertainment",
-  "epicgames.com": "Entertainment",
-  "douban.com": "Entertainment",
-  "xiaohongshu.com": "Entertainment",
-  "pinterest.com": "Entertainment",
-  "spotify.com": "Entertainment",
-  "music.163.com": "Entertainment",
-  "y.qq.com": "Entertainment",
-  "huya.com": "Entertainment",
-  "douyu.com": "Entertainment",
-};
-
-function getCategoryForDomain(
-  domain: string,
-  userCategories: Record<string, string>
-): string {
-  if (userCategories[domain]) {
-    return userCategories[domain];
-  }
-  if (defaultCategories[domain]) {
-    return defaultCategories[domain];
-  }
-  return "Neutral";
-}
+import { getCategoryForDomain } from './lib/categories';
 
 let currentTabId: number | null = null;
 let currentDomain: string | null = null;
@@ -110,15 +32,35 @@ function findMatchingRuleKey<T>(domain: string | null, rules: Record<string, T>)
   return bestMatch;
 }
 
+/** Remove stats entries older than the specified number of days */
+async function cleanupOldStats(retentionDays: number = 90) {
+  const data = await chrome.storage.local.get(['stats']);
+  const stats = (data.stats || {}) as Record<string, Record<string, number>>;
+
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+  const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+  let changed = false;
+  for (const dateKey of Object.keys(stats)) {
+    if (dateKey < cutoffStr) {
+      delete stats[dateKey];
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await chrome.storage.local.set({ stats });
+  }
+}
+
 async function updateTime() {
   if (!currentDomain) {
-    console.log('[WebTime] updateTime skipped: no currentDomain');
     return;
   }
 
   const now = Date.now();
   const delta = Math.floor((now - lastUpdateTime) / 1000);
-  console.log(`[WebTime] updateTime for ${currentDomain} - delta: ${delta}s`);
   if (delta < 1) return;
 
   const today = new Date().toISOString().split('T')[0];
@@ -130,8 +72,6 @@ async function updateTime() {
 
   if (!stats[today]) stats[today] = {};
   stats[today][currentDomain] = (stats[today][currentDomain] || 0) + delta;
-
-  console.log(`[WebTime] Updated stats for ${currentDomain}: ${stats[today][currentDomain]}s`);
 
   // Check limits by summing up matching subdomains
   const matchedLimitKey = findMatchingRuleKey(currentDomain, limits);
@@ -165,27 +105,22 @@ async function updateTime() {
 }
 
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  console.log('[WebTime] Tab activated', activeInfo);
   await updateTime();
   const tab = await chrome.tabs.get(activeInfo.tabId);
   currentTabId = activeInfo.tabId;
   currentDomain = getDomain(tab.url);
   lastUpdateTime = Date.now();
-  console.log(`[WebTime] New domain is now: ${currentDomain}`);
 });
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, _tab) => {
   if (tabId === currentTabId && changeInfo.url) {
-    console.log('[WebTime] Tab updated (URL changed)', changeInfo.url);
     await updateTime();
     currentDomain = getDomain(changeInfo.url);
     lastUpdateTime = Date.now();
-    console.log(`[WebTime] New domain is now: ${currentDomain}`);
   }
 });
 
 chrome.idle.onStateChanged.addListener(async (state) => {
-  console.log('[WebTime] Idle state changed:', state);
   if (state === 'active') {
     lastUpdateTime = Date.now();
   } else {
@@ -200,6 +135,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     updateTime();
   } else if (alarm.name === 'hourlyChime') {
     handleHourlyChime();
+  } else if (alarm.name === 'dailyCleanup') {
+    cleanupOldStats();
   }
 });
 
@@ -241,12 +178,19 @@ function setupHourlyAlarm() {
 // Ensure alarm is set up on load
 setupHourlyAlarm();
 
+// Set up daily cleanup alarm
+chrome.alarms.create('dailyCleanup', { periodInMinutes: 1440 }); // Once per day
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get(['stats', 'limits', 'notifications', 'categories'], (result) => {
-    if (!result.stats) chrome.storage.local.set({ stats: {} });
-    if (!result.limits) chrome.storage.local.set({ limits: {} });
-    if (!result.notifications) chrome.storage.local.set({ notifications: {} });
-    if (!result.categories) chrome.storage.local.set({ categories: {} });
+    const defaults: Record<string, object> = {};
+    if (!result.stats) defaults.stats = {};
+    if (!result.limits) defaults.limits = {};
+    if (!result.notifications) defaults.notifications = {};
+    if (!result.categories) defaults.categories = {};
+    if (Object.keys(defaults).length > 0) {
+      chrome.storage.local.set(defaults);
+    }
   });
 
   // Force reset alarm on install/update to ensure correct timing
@@ -256,6 +200,9 @@ chrome.runtime.onInstalled.addListener(() => {
     when: nextHour.getTime(),
     periodInMinutes: 60
   });
+
+  // Run cleanup on install/update
+  cleanupOldStats();
 });
 
 // Expose for debugging
@@ -270,7 +217,7 @@ async function init() {
       lastUpdateTime = Date.now();
     }
   } catch (e) {
-    console.error("Init failed", e);
+    // Init failed silently
   }
 }
 

@@ -30,7 +30,6 @@
           z-index: 2147483647;
           display: flex;
           align-items: center;
-          justify-center;
           justify-content: center;
           background-color: rgba(0, 0, 0, 0.95);
           backdrop-filter: blur(4px);

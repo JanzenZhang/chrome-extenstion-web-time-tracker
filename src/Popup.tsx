@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Settings, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,23 +14,70 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { getCategoryForDomain } from './lib/categories';
 
 const Popup = () => {
-  const [stats, setStats] = useState<any>({});
+  const [stats, setStats] = useState<Record<string, Record<string, number>>>({});
   const [categories, setCategories] = useState<Record<string, string>>({});
   const [focusMode, setFocusMode] = useState<{ active: boolean, endTime: number | null }>({ active: false, endTime: null });
   const [currentView, setCurrentView] = useState('today');
   const [focusMinutes, setFocusMinutes] = useState('25');
+  const [focusDisplay, setFocusDisplay] = useState('00:00');
+  const focusModeRef = useRef(focusMode);
 
+  // Keep ref in sync for use in timer callback
+  useEffect(() => {
+    focusModeRef.current = focusMode;
+  }, [focusMode]);
+
+  // Load initial data once
   useEffect(() => {
     const loadStats = async () => {
       const data = await chrome.storage.local.get(['stats', 'categories', 'focusMode']);
-      setStats(data.stats || {});
+      setStats((data.stats || {}) as Record<string, Record<string, number>>);
       setCategories((data.categories || {}) as Record<string, string>);
       setFocusMode(data.focusMode as { active: boolean, endTime: number | null } || { active: false, endTime: null });
     };
     loadStats();
-    const interval = setInterval(loadStats, 1000); // Poll every second for timer updates
-    return () => clearInterval(interval);
   }, []);
+
+  // Listen to storage changes instead of polling
+  useEffect(() => {
+    const handler = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes.stats) setStats((changes.stats.newValue || {}) as Record<string, Record<string, number>>);
+      if (changes.categories) setCategories((changes.categories.newValue || {}) as Record<string, string>);
+      if (changes.focusMode) setFocusMode((changes.focusMode.newValue || { active: false, endTime: null }) as { active: boolean, endTime: number | null });
+    };
+    chrome.storage.onChanged.addListener(handler);
+    return () => chrome.storage.onChanged.removeListener(handler);
+  }, []);
+
+  // Separate timer for focus mode countdown display
+  useEffect(() => {
+    if (!focusMode.active || !focusMode.endTime) {
+      setFocusDisplay('00:00');
+      return;
+    }
+
+    const updateDisplay = () => {
+      const fm = focusModeRef.current;
+      if (!fm.active || !fm.endTime) return;
+
+      const remainingMs = fm.endTime - Date.now();
+      if (remainingMs <= 0) {
+        // Auto-stop focus mode when time expires
+        const newState = { active: false, endTime: null };
+        chrome.storage.local.set({ focusMode: newState });
+        setFocusMode(newState);
+        setFocusDisplay('00:00');
+        return;
+      }
+      const m = Math.floor(remainingMs / 60000);
+      const s = Math.floor((remainingMs % 60000) / 1000);
+      setFocusDisplay(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+    };
+
+    updateDisplay();
+    const interval = setInterval(updateDisplay, 1000);
+    return () => clearInterval(interval);
+  }, [focusMode.active, focusMode.endTime]);
 
   const getTodayData = () => {
     const today = new Date().toISOString().split('T')[0];
@@ -51,7 +99,7 @@ const Popup = () => {
         }
       }
 
-      aggregated[baseDomain] = (aggregated[baseDomain] || 0) + (value as number);
+      aggregated[baseDomain] = (aggregated[baseDomain] || 0) + value;
     });
 
     return Object.entries(aggregated)
@@ -68,7 +116,7 @@ const Popup = () => {
       d.setDate(today.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
       const dayStats = stats[dateStr] || {};
-      const total = Object.values(dayStats).reduce((a: any, b: any) => a + b, 0) as number;
+      const total = Object.values(dayStats).reduce((a, b) => a + b, 0);
       data.push({
         date: dateStr.split('-').slice(1).join('/'),
         hours: parseFloat((total / 3600).toFixed(2))
@@ -92,8 +140,8 @@ const Popup = () => {
 
     Object.entries(dayStats).forEach(([domain, seconds]) => {
       const cat = getCategoryForDomain(domain, categories);
-      if (cat === 'Productivity') prodTime += (seconds as number);
-      if (cat === 'Entertainment') entTime += (seconds as number);
+      if (cat === 'Productivity') prodTime += seconds;
+      if (cat === 'Entertainment') entTime += seconds;
     });
 
     const totalTracked = prodTime + entTime;
@@ -102,33 +150,20 @@ const Popup = () => {
     return { prodTime, entTime, score, totalTracked };
   };
 
-  const startFocusMode = async () => {
+  const startFocusMode = useCallback(async () => {
     const mins = parseInt(focusMinutes);
     if (isNaN(mins) || mins <= 0) return;
     const endTime = Date.now() + mins * 60 * 1000;
     const newState = { active: true, endTime };
     await chrome.storage.local.set({ focusMode: newState });
     setFocusMode(newState);
-  };
+  }, [focusMinutes]);
 
-  const stopFocusMode = async () => {
+  const stopFocusMode = useCallback(async () => {
     const newState = { active: false, endTime: null };
     await chrome.storage.local.set({ focusMode: newState });
     setFocusMode(newState);
-  };
-
-  const getRemainingFocusTime = () => {
-    if (!focusMode.active || !focusMode.endTime) return '00:00';
-    const remainingMs = focusMode.endTime - Date.now();
-    if (remainingMs <= 0) {
-      // Auto stop if it's past end time but state hasn't updated
-      stopFocusMode();
-      return '00:00';
-    }
-    const m = Math.floor(remainingMs / 60000);
-    const s = Math.floor((remainingMs % 60000) / 1000);
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
   const todayData = getTodayData();
   const weeklyTrend = getWeeklyTrend();
@@ -207,8 +242,8 @@ const Popup = () => {
                     <div className="flex items-center justify-between">
                       <div className="text-3xl font-bold text-primary">{prodMetrics.score}<span className="text-sm font-normal text-muted-foreground ml-1">分</span></div>
                       <div className="text-right text-xs text-muted-foreground space-y-1">
-                        <div><span className="inline-block w-2, h-2 rounded-full bg-green-500 mr-1"></span>生产力: {formatTime(prodMetrics.prodTime)}</div>
-                        <div><span className="inline-block w-2, h-2 rounded-full bg-orange-400 mr-1"></span>娱乐: {formatTime(prodMetrics.entTime)}</div>
+                        <div><span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1"></span>生产力: {formatTime(prodMetrics.prodTime)}</div>
+                        <div><span className="inline-block w-2 h-2 rounded-full bg-orange-400 mr-1"></span>娱乐: {formatTime(prodMetrics.entTime)}</div>
                       </div>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2 mt-3 overflow-hidden">
@@ -223,23 +258,25 @@ const Popup = () => {
                   <CardTitle className="text-sm font-medium">网站使用时长分布</CardTitle>
                 </CardHeader>
                 <CardContent className="h-[200px] w-full p-0 flex items-center justify-center">
-                  <PieChart width={350} height={200}>
-                    <Pie
-                      data={todayData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                      isAnimationActive={false}
-                    >
-                      {todayData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: any) => formatTime(value as number)} />
-                  </PieChart>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={todayData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                        isAnimationActive={false}
+                      >
+                        {todayData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: any) => formatTime(value as number)} />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
 
@@ -269,12 +306,14 @@ const Popup = () => {
                   <CardTitle className="text-sm font-medium">最近 7 天使用时长 (小时)</CardTitle>
                 </CardHeader>
                 <CardContent className="h-[250px] w-full p-0 flex items-center justify-center">
-                  <BarChart width={350} height={250} data={weeklyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}h`} />
-                    <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '8px' }} />
-                    <Bar dataKey="hours" name="使用时长 (小时)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-                  </BarChart>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={weeklyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}h`} />
+                      <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '8px' }} />
+                      <Bar dataKey="hours" name="使用时长 (小时)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
             </motion.div>
@@ -294,16 +333,15 @@ const Popup = () => {
                 </CardHeader>
                 <CardContent className="space-y-4 p-4 pt-0">
                   <p className="text-sm text-center text-muted-foreground mb-4">
-                    开启后，所有“娱乐”和“中立”网站将会被拦截，以保持专注。
+                    开启后，所有"娱乐"和"中立"网站将会被拦截，以保持专注。
                   </p>
 
                   {!focusMode.active ? (
                     <div className="space-y-4">
                       <div className="flex flex-col space-y-2">
                         <label htmlFor="focus-minutes" className="text-sm font-medium leading-none">专注时长 (分钟)</label>
-                        <select
+                        <Select
                           id="focus-minutes"
-                          className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           value={focusMinutes}
                           onChange={(e) => setFocusMinutes(e.target.value)}
                         >
@@ -311,7 +349,7 @@ const Popup = () => {
                           <option value="25">25 分钟 (标准番茄钟)</option>
                           <option value="45">45 分钟 (深度工作)</option>
                           <option value="60">60 分钟 (极限挑战)</option>
-                        </select>
+                        </Select>
                       </div>
                       <Button
                         className="w-full text-md h-12"
@@ -323,7 +361,7 @@ const Popup = () => {
                   ) : (
                     <div className="flex flex-col items-center justify-center space-y-6 py-4">
                       <div className="text-6xl font-mono tabular-nums text-primary font-bold tracking-tight">
-                        {getRemainingFocusTime()}
+                        {focusDisplay}
                       </div>
                       <p className="text-muted-foreground animate-pulse text-sm font-medium">
                         专注进行中，请保持状态！
@@ -349,3 +387,4 @@ const Popup = () => {
 };
 
 export default Popup;
+
