@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Settings, Download } from 'lucide-react';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#8dd1e1', '#a4de6c', '#d0ed57'];
@@ -13,6 +12,9 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { getCategoryForDomain } from './lib/categories';
 import { getLocalDateKey } from './lib/date';
 import Favicon from './components/Favicon';
+
+const TodayPieChart = lazy(() => import('./components/charts/TodayPieChart'));
+const WeeklyBarChart = lazy(() => import('./components/charts/WeeklyBarChart'));
 
 const Popup = () => {
   const [stats, setStats] = useState<Record<string, Record<string, number>>>({});
@@ -254,25 +256,9 @@ const Popup = () => {
                   <CardTitle className="text-sm font-medium">网站使用时长分布</CardTitle>
                 </CardHeader>
                 <CardContent className="h-[200px] w-full p-0 flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height={200}>
-                    <PieChart>
-                      <Pie
-                        data={todayData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                        isAnimationActive={false}
-                      >
-                        {todayData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value: any) => formatTime(value as number)} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <Suspense fallback={<div className="h-full w-full animate-pulse bg-muted/40" />}>
+                    <TodayPieChart data={todayData} colors={COLORS} formatTime={formatTime} />
+                  </Suspense>
                 </CardContent>
               </Card>
 
@@ -333,14 +319,9 @@ const Popup = () => {
                   <CardTitle className="text-sm font-medium">最近 7 天使用时长 (小时)</CardTitle>
                 </CardHeader>
                 <CardContent className="h-[250px] w-full p-0 flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={weeklyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                      <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}h`} />
-                      <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '8px' }} />
-                      <Bar dataKey="hours" name="使用时长 (小时)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <Suspense fallback={<div className="h-full w-full animate-pulse bg-muted/40" />}>
+                    <WeeklyBarChart data={weeklyTrend} />
+                  </Suspense>
                 </CardContent>
               </Card>
             </div>
