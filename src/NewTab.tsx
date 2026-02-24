@@ -6,6 +6,7 @@ import { Settings, Clock, Target, TrendingUp, Zap } from 'lucide-react';
 import { ThemeToggle } from './components/ThemeToggle';
 import Favicon from './components/Favicon';
 import { getCategoryForDomain } from './lib/categories';
+import { getLocalDateKey } from './lib/date';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#a5b4fc', '#67e8f9', '#34d399', '#fbbf24', '#f87171'];
 
@@ -42,7 +43,7 @@ const NewTab = () => {
         return () => clearInterval(timer);
     }, []);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateKey();
     const todayStats = stats[today] || {};
 
     const formatTime = (seconds: number) => {
@@ -80,7 +81,7 @@ const NewTab = () => {
     for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = getLocalDateKey(d);
         const dayStats = stats[dateStr] || {};
         const total = Object.values(dayStats).reduce((a, b) => a + b, 0);
 

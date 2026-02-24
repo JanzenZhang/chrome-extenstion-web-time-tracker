@@ -1,8 +1,11 @@
 import { getCategoryForDomain, classifyByMetadata } from './lib/categories';
+import { getLocalDateKey } from './lib/date';
 
 let currentTabId: number | null = null;
 let currentDomain: string | null = null;
 let lastUpdateTime: number = Date.now();
+let updateInFlight = false;
+let updateQueued = false;
 
 function getDomain(url: string | undefined): string | null {
   if (!url) return null;
@@ -39,7 +42,7 @@ async function cleanupOldStats(retentionDays: number = 90) {
 
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-  const cutoffStr = cutoffDate.toISOString().split('T')[0];
+  const cutoffStr = getLocalDateKey(cutoffDate);
 
   let changed = false;
   for (const dateKey of Object.keys(stats)) {
@@ -60,7 +63,7 @@ function formatTimeShort(seconds: number): string {
   return h > 0 ? `${h}小时${m}分` : `${m}分`;
 }
 
-async function updateTime() {
+async function updateTimeOnce() {
   if (!currentDomain) {
     return;
   }
@@ -69,7 +72,7 @@ async function updateTime() {
   const delta = Math.floor((now - lastUpdateTime) / 1000);
   if (delta < 1) return;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateKey();
 
   const data = await chrome.storage.local.get(['stats', 'limits', 'notifications', 'categories', 'goals', 'achievements']);
   const stats = (data.stats || {}) as Record<string, Record<string, number>>;
@@ -138,6 +141,23 @@ async function updateTime() {
 
   await chrome.storage.local.set({ stats, notifications, achievements });
   lastUpdateTime = now;
+}
+
+async function updateTime() {
+  if (updateInFlight) {
+    updateQueued = true;
+    return;
+  }
+
+  updateInFlight = true;
+  try {
+    do {
+      updateQueued = false;
+      await updateTimeOnce();
+    } while (updateQueued);
+  } finally {
+    updateInFlight = false;
+  }
 }
 
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
@@ -238,7 +258,7 @@ function setupDailyReportAlarm() {
 setupDailyReportAlarm();
 
 async function handleDailyReport() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateKey();
   const data = await chrome.storage.local.get(['stats', 'categories', 'autoCategories', 'goals', 'achievements']);
   const stats = (data.stats || {}) as Record<string, Record<string, number>>;
   const categories = (data.categories || {}) as Record<string, string>;
@@ -384,7 +404,7 @@ async function handleGetSiteTime(sender: chrome.runtime.MessageSender, sendRespo
     return;
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateKey();
   const data = await chrome.storage.local.get(['stats']);
   const stats = (data.stats || {}) as Record<string, Record<string, number>>;
   const todayStats = stats[today] || {};
@@ -409,7 +429,7 @@ async function handleGetStatus(sender: chrome.runtime.MessageSender, sendRespons
     return;
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateKey();
   const data = await chrome.storage.local.get(['stats', 'limits', 'focusMode', 'categories', 'autoCategories']);
 
   const stats = (data.stats || {}) as Record<string, Record<string, number>>;

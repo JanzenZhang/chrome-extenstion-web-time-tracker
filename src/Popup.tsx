@@ -12,6 +12,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 import { ThemeToggle } from './components/ThemeToggle';
 
 import { getCategoryForDomain } from './lib/categories';
+import { getLocalDateKey } from './lib/date';
 import Favicon from './components/Favicon';
 
 const Popup = () => {
@@ -90,7 +91,7 @@ const Popup = () => {
   }, [focusMode.active, focusMode.endTime]);
 
   const getTodayData = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateKey();
     const dayStats = stats[today] || {};
 
     // Aggregate subdomains
@@ -124,7 +125,7 @@ const Popup = () => {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = getLocalDateKey(d);
       const dayStats = stats[dateStr] || {};
       const total = Object.values(dayStats).reduce((a, b) => a + b, 0);
       data.push({
@@ -142,7 +143,7 @@ const Popup = () => {
   };
 
   const getProductivityMetrics = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateKey();
     const dayStats = stats[today] || {};
 
     let prodTime = 0;
@@ -180,7 +181,7 @@ const Popup = () => {
   const prodMetrics = getProductivityMetrics();
 
   const getGoalProgress = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateKey();
     const todayStats = stats[today] || {};
 
     return Object.entries(goals).map(([domain, goalSeconds]) => {
@@ -211,6 +212,7 @@ const Popup = () => {
             a.href = url;
             a.download = `webtime-数据导出.json`;
             a.click();
+            URL.revokeObjectURL(url);
           }} title="导出数据">
             <Download className="h-4 w-4" />
           </Button>
@@ -452,4 +454,3 @@ const Popup = () => {
 };
 
 export default Popup;
-

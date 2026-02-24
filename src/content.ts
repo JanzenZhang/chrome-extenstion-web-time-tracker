@@ -1,4 +1,8 @@
 (() => {
+    const getSiteFaviconUrl = (domain: string) => `https://${domain}/favicon.ico`;
+    const getGoogleFaviconUrl = (domain: string, size: number) =>
+        `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}`;
+
     let currentStatus: any = null;
     let overlayElement: HTMLDivElement | null = null;
     let timeWidgetElement: HTMLDivElement | null = null;
@@ -156,11 +160,18 @@
             `;
 
             const icon = document.createElement('img');
-            icon.src = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16`;
+            icon.src = getSiteFaviconUrl(domain);
             icon.width = 14;
             icon.height = 14;
             icon.style.cssText = 'border-radius: 2px; flex-shrink: 0;';
-            icon.onerror = () => { icon.style.display = 'none'; };
+            icon.onerror = () => {
+                if (icon.dataset.fallback !== 'google') {
+                    icon.dataset.fallback = 'google';
+                    icon.src = getGoogleFaviconUrl(domain, 16);
+                    return;
+                }
+                icon.style.display = 'none';
+            };
 
             widgetDomainSpan = document.createElement('span');
             widgetDomainSpan.style.color = '#d1d5db';
@@ -289,7 +300,7 @@
         pollInterval = setInterval(() => {
             fetchStatus();
             fetchSiteTime();
-        }, 30000); // Sync with background every 30 seconds
+        }, 60000); // Sync with background every 60 seconds
 
         // Extract metadata after page is loaded, with a small delay
         // to ensure dynamic content has rendered
