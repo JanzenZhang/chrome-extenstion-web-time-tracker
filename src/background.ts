@@ -1,5 +1,6 @@
 import { getCategoryForDomain, classifyByMetadata } from './lib/categories';
 import { getLocalDateKey } from './lib/date';
+import type { GetSiteTimeResponse, RuntimeMessage, WebTimeStatus } from './lib/messages';
 
 let currentTabId: number | null = null;
 let currentDomain: string | null = null;
@@ -74,7 +75,7 @@ async function updateTimeOnce() {
 
   const today = getLocalDateKey();
 
-  const data = await chrome.storage.local.get(['stats', 'limits', 'notifications', 'categories', 'goals', 'achievements']);
+  const data = await chrome.storage.local.get(['stats', 'limits', 'notifications', 'goals', 'achievements']);
   const stats = (data.stats || {}) as Record<string, Record<string, number>>;
   const limits = (data.limits || {}) as Record<string, number>;
   const notifications = (data.notifications || {}) as Record<string, string>;
@@ -360,7 +361,7 @@ async function init() {
 init();
 
 // --- Communications with Content Script ---
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
   if (message.type === 'GET_STATUS') {
     handleGetStatus(sender, sendResponse);
     return true;
@@ -373,7 +374,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-async function handleClassifyPage(message: any, sender: chrome.runtime.MessageSender) {
+async function handleClassifyPage(message: Extract<RuntimeMessage, { type: 'CLASSIFY_PAGE' }>, sender: chrome.runtime.MessageSender) {
   const url = sender.tab?.url || sender.url;
   const domain = getDomain(url);
   if (!domain) return;
@@ -395,7 +396,7 @@ async function handleClassifyPage(message: any, sender: chrome.runtime.MessageSe
   }
 }
 
-async function handleGetSiteTime(sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
+async function handleGetSiteTime(sender: chrome.runtime.MessageSender, sendResponse: (response: GetSiteTimeResponse) => void) {
   const url = sender.tab?.url || sender.url;
   const domain = getDomain(url);
 
@@ -420,7 +421,7 @@ async function handleGetSiteTime(sender: chrome.runtime.MessageSender, sendRespo
   sendResponse({ seconds: totalSeconds, domain });
 }
 
-async function handleGetStatus(sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) {
+async function handleGetStatus(sender: chrome.runtime.MessageSender, sendResponse: (response: WebTimeStatus) => void) {
   const url = sender.tab?.url || sender.url;
   const domain = getDomain(url);
 

@@ -131,22 +131,22 @@ const NewTab = () => {
             {/* Background gradient */}
             <div className="fixed inset-0 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 dark:from-indigo-500/10 dark:via-purple-500/5 dark:to-pink-500/10 pointer-events-none" />
 
-            <div className="relative max-w-6xl mx-auto px-6 py-8">
+            <div className="relative max-w-6xl mx-auto px-4 py-6 sm:px-6 sm:py-8">
                 {/* Header */}
-                <header className="flex items-center justify-between mb-10">
+                <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8 md:mb-10">
                     <div>
-                        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
+                        <h1 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
                             {greeting}
                         </h1>
-                        <p className="text-muted-foreground mt-1 text-lg">
+                        <p className="text-muted-foreground mt-1 text-base md:text-lg">
                             {currentTime.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <div className="text-5xl font-mono tabular-nums font-light text-foreground/80 tracking-tight">
+                    <div className="flex items-center justify-between gap-3 md:justify-end">
+                        <div className="text-3xl sm:text-4xl md:text-5xl font-mono tabular-nums font-light text-foreground/80 tracking-tight">
                             {currentTime.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                         </div>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex gap-1 md:flex-col">
                             <ThemeToggle />
                             <Button variant="ghost" size="icon" onClick={() => chrome.runtime.openOptionsPage()} title="设置">
                                 <Settings className="h-4 w-4" />
@@ -156,7 +156,7 @@ const NewTab = () => {
                 </header>
 
                 {/* Stats cards row */}
-                <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
                     <Card className="bg-card/60 backdrop-blur border-border/50">
                         <CardContent className="p-5">
                             <div className="flex items-center gap-3">
@@ -218,7 +218,7 @@ const NewTab = () => {
                 </div>
 
                 {/* Main content grid */}
-                <div className="grid grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                     {/* Left column: Top Sites + Goals */}
                     <div className="space-y-6">
                         {/* Top Sites */}
@@ -299,7 +299,7 @@ const NewTab = () => {
                     </div>
 
                     {/* Center column: Weekly Trend */}
-                    <Card className="bg-card/60 backdrop-blur border-border/50 col-span-1">
+                    <Card className="bg-card/60 backdrop-blur border-border/50">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-base font-semibold">📈 一周趋势</CardTitle>
                         </CardHeader>
@@ -375,7 +375,7 @@ const NewTab = () => {
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         </div>
-                                        <div className="flex items-center justify-center gap-4 mt-2">
+                                        <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
                                             {pieData.map((d) => (
                                                 <div key={d.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />

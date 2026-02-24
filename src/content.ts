@@ -1,15 +1,17 @@
+import type { GetSiteTimeResponse, RuntimeMessage, WebTimeStatus } from './lib/messages';
+
 (() => {
     const getSiteFaviconUrl = (domain: string) => `https://${domain}/favicon.ico`;
     const getGoogleFaviconUrl = (domain: string, size: number) =>
         `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=${size}`;
 
-    let currentStatus: any = null;
+    let currentStatus: WebTimeStatus = null;
     let overlayElement: HTMLDivElement | null = null;
     let timeWidgetElement: HTMLDivElement | null = null;
     let widgetDismissed = false;
     let lastKnownSeconds = 0;
     let lastKnownDomain = '';
-    let localTickInterval: any = null;
+    let localTickInterval: number | null = null;
 
     function formatTimeShort(seconds: number): string {
         const h = Math.floor(seconds / 3600);
@@ -217,17 +219,18 @@
         if (widgetTimeSpan) widgetTimeSpan.textContent = formatTimeShort(seconds);
     }
 
-    let pollInterval: any = null;
+    let pollInterval: number | null = null;
 
     function fetchStatus() {
         try {
-            chrome.runtime.sendMessage({ type: 'GET_STATUS' }, (response) => {
+            chrome.runtime.sendMessage({ type: 'GET_STATUS' } as RuntimeMessage, (response: WebTimeStatus) => {
                 if (chrome.runtime.lastError) return;
                 currentStatus = response;
                 renderOverlay();
             });
-        } catch (error: any) {
-            if (error?.message?.includes('Extension context invalidated')) {
+        } catch (error: unknown) {
+            const err = error as { message?: string };
+            if (err?.message?.includes('Extension context invalidated')) {
                 console.warn('[WebTime Tracker] Extension context invalidated. Stopping background polls.');
                 if (pollInterval) {
                     clearInterval(pollInterval);
@@ -240,7 +243,7 @@
     function fetchSiteTime() {
         if (widgetDismissed) return;
         try {
-            chrome.runtime.sendMessage({ type: 'GET_SITE_TIME' }, (response) => {
+            chrome.runtime.sendMessage({ type: 'GET_SITE_TIME' } as RuntimeMessage, (response: GetSiteTimeResponse) => {
                 if (chrome.runtime.lastError) return;
                 if (response && response.domain) {
                     lastKnownSeconds = response.seconds;
@@ -284,7 +287,7 @@
                 chrome.runtime.sendMessage({
                     type: 'CLASSIFY_PAGE',
                     metadata,
-                }, () => {
+                } as RuntimeMessage, () => {
                     if (chrome.runtime.lastError) { /* ignore */ }
                 });
             }
