@@ -224,9 +224,9 @@ const Popup = () => {
 
       <Tabs defaultValue="today" className="w-full">
         <TabsList className="grid w-full grid-cols-3 relative bg-muted p-1">
-          <TabsTrigger value="today" className="h-8">今日统计</TabsTrigger>
-          <TabsTrigger value="week" className="h-8">过去七天</TabsTrigger>
-          <TabsTrigger value="focus" className="h-8">专注模式</TabsTrigger>
+          <TabsTrigger value="today" className="h-7">今日统计</TabsTrigger>
+          <TabsTrigger value="week" className="h-7">过去七天</TabsTrigger>
+          <TabsTrigger value="focus" className="h-7">专注模式</TabsTrigger>
         </TabsList>
 
           <TabsContent value="today" key="today" className="space-y-4 outline-none">
