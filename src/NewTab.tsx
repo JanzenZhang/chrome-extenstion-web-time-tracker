@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { Settings, Clock, Target, TrendingUp, Zap } from 'lucide-react';
 import { ThemeToggle } from './components/ThemeToggle';
 import Favicon from './components/Favicon';
@@ -9,6 +8,8 @@ import { getCategoryForDomain } from './lib/categories';
 import { getLocalDateKey } from './lib/date';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#a5b4fc', '#67e8f9', '#34d399', '#fbbf24', '#f87171'];
+const NewTabWeeklyAreaChart = lazy(() => import('./components/charts/NewTabWeeklyAreaChart'));
+const NewTabTimePieChart = lazy(() => import('./components/charts/NewTabTimePieChart'));
 
 const NewTab = () => {
     const [stats, setStats] = useState<Record<string, Record<string, number>>>({});
@@ -305,31 +306,9 @@ const NewTab = () => {
                         </CardHeader>
                         <CardContent>
                             <div style={{ width: '100%', height: 280 }}>
-                                <ResponsiveContainer width="100%" height={280} minWidth={0}>
-                                    <AreaChart data={weeklyTrend} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
-                                        <defs>
-                                            <linearGradient id="gradProd" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
-                                            </linearGradient>
-                                            <linearGradient id="gradEnt" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#f87171" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#f87171" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                                        <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}h`} />
-                                        <Tooltip
-                                            contentStyle={{ borderRadius: '8px', fontSize: '12px', backdropFilter: 'blur(8px)' }}
-                                            formatter={(value: any, name: any) => [
-                                                `${value}h`,
-                                                name === 'prod' ? '生产力' : name === 'ent' ? '娱乐' : '总计'
-                                            ]}
-                                        />
-                                        <Area type="monotone" dataKey="prod" name="prod" stroke="#34d399" fill="url(#gradProd)" strokeWidth={2} />
-                                        <Area type="monotone" dataKey="ent" name="ent" stroke="#f87171" fill="url(#gradEnt)" strokeWidth={2} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                                <Suspense fallback={<div className="h-full w-full animate-pulse bg-muted/40 rounded-md" />}>
+                                    <NewTabWeeklyAreaChart data={weeklyTrend} />
+                                </Suspense>
                             </div>
                             <div className="flex items-center justify-center gap-6 mt-3">
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -355,25 +334,9 @@ const NewTab = () => {
                                 {pieData.length > 0 ? (
                                     <>
                                         <div style={{ width: '100%', height: 180 }}>
-                                            <ResponsiveContainer width="100%" height={180} minWidth={0}>
-                                                <PieChart>
-                                                    <Pie
-                                                        data={pieData}
-                                                        cx="50%"
-                                                        cy="50%"
-                                                        innerRadius={55}
-                                                        outerRadius={75}
-                                                        paddingAngle={4}
-                                                        dataKey="value"
-                                                        isAnimationActive={false}
-                                                    >
-                                                        {pieData.map((entry, index) => (
-                                                            <Cell key={index} fill={entry.color} />
-                                                        ))}
-                                                    </Pie>
-                                                    <Tooltip formatter={(value: any) => formatTimeCn(value as number)} />
-                                                </PieChart>
-                                            </ResponsiveContainer>
+                                            <Suspense fallback={<div className="h-full w-full animate-pulse bg-muted/40 rounded-md" />}>
+                                                <NewTabTimePieChart data={pieData} formatTimeCn={formatTimeCn} />
+                                            </Suspense>
                                         </div>
                                         <div className="flex flex-wrap items-center justify-center gap-4 mt-2">
                                             {pieData.map((d) => (
